@@ -1,0 +1,137 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Проверка безопасности</h2>
+    <p class="subtitle">Запустите проверку безопасности на выбранных компьютерах</p>
+</div>
+
+{% if computers %}
+<div class="verification-options">
+    <div class="option-card">
+        <div class="option-icon" style="background: #f59e0b;">
+            <i class="fas fa-bolt"></i>
+        </div>
+        <div class="option-content">
+            <h4>Анализ защищенной ИСПДн</h4>
+            <p class="text-muted">Проверка базовых требований информационной безопасности</p>
+            
+            <div class="form-group">
+                <label class="form-label">Выберите компьютер:</label>
+                <select class="form-select" id="computerSelect">
+                    <option value="">-- Выберите компьютер --</option>
+                    {% for computer in computers %}
+                    <option value="{{ computer.id }}">{{ computer.name }} ({{ computer.ip_address }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button class="btn btn-primary w-100" onclick="runQuickCheck()" id="checkButton">
+                <i class="fas fa-play"></i> Запустить анализ
+            </button>
+            
+            <div class="mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    Проверка включает: базовые параметры системы, ключевые требования ИСПДн
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function runQuickCheck() {
+    const computerId = document.getElementById('computerSelect').value;
+    if (!computerId) {
+        alert('Выберите компьютер для проверки');
+        return;
+    }
+    
+    const button = document.getElementById('checkButton');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Выполняется проверка...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/quick-verify/${computerId}`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            
+            setTimeout(() => {
+
+                window.location.href = `/reports/${data.report_id}`;
+            }, 1000);
+        } else {
+            button.innerHTML = originalText;
+            button.disabled = false;
+            alert('Ошибка: ' + data.message);
+        }
+    } catch (error) {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        alert('Ошибка подключения: ' + error);
+    }
+}
+</script>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-desktop fa-4x"></i>
+    <h3>Нет компьютеров для проверки</h3>
+    <p>Добавьте компьютеры перед запуском проверки</p>
+    <a href="/computers/new" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Добавить компьютер
+    </a>
+</div>
+{% endif %}
+
+<style>
+/* Стили для страницы проверки */
+.verification-options {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.option-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.option-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-search text-primary me-2"></i>Анализ ИСПДн</h2>
+    <p class="subtitle">Проверка соответствия требованиям защиты персональных данных</p>
+</div>
+
+<div class="analysis-container">
+    <!-- Информация об организации -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-building me-2"></i>Информация об организации</h4>
+        </div>
+        <div class="card-body">
+            <div id="orgInfoForm">
+                <!-- Форма будет заполнена из настроек -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Параметры анализа -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-cogs me-2"></i>Параметры анализа</h4>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Уровень детализации</label>
+                    <select class="form-control" id="detailLevel">
+                        <option value="basic">Базовый</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Формат отчета</label>
+                    <select class="form-control" id="reportFormat">
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Язык отчета</label>
+                    <select class="form-control" id="reportLanguage">
+                        <option value="ru" selected>Русский</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Результаты анализа -->
+    <div class="card">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>Результаты анализа</h4>
+        </div>
+        <div class="card-body">
+            <div id="analysisResults" class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Нажмите "Начать анализ" для проверки соответствия</p>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary" onclick="loadSettings()">
+                    <i class="fas fa-download me-2"></i>Загрузить настройки
+                </button>
+                <button class="btn btn-primary" onclick="startAnalysis()">
+                    <i class="fas fa-play me-2"></i>Начать анализ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5><i class="fas fa-cog me-2"></i>Используемые настройки</h5>
+        </div>
+        <div class="card-body">
+            <div id="currentSettings">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Загрузка настроек...
+                </div>
+            </div>
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadCurrentSettings()">
+                <i class="fas fa-sync me-1"></i>Обновить настройки
+            </button>
+        </div>
+    </div>
+
+
+</div>
+
+<script>
+// В templates/ispdn_analyze.html - обновим JavaScript
+
+async function loadCurrentSettings() {
+    try {
+        const response = await fetch('/api/settings/ispdn/current');
+        const settings = await response.json();
+        
+        if (settings && !settings.status) {
+            let html = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Организация:</strong> ${settings.organization?.name || 'Не указано'}</p>
+                        <p><strong>ИНН:</strong> ${settings.organization?.inn || 'Не указано'}</p>
+                        <p><strong>Категория ПДн:</strong> ${settings.ispdn?.pdnCategory || 'Не указано'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Тип угроз:</strong> ${settings.ispdn?.threatType || 'Не указано'}</p>
+                        <p><strong>Субъектов:</strong> ${settings.ispdn?.subjectsCount || 'Не указано'}</p>
+                        <p><strong>Выбрано требований:</strong> ${settings.selected_requirements?.length || 0} из 36</p>
+                    </div>
+                </div>`;
+            
+            // Показываем выбранные требования, если они есть
+            if (settings.selected_requirements && settings.selected_requirements.length > 0) {
+                html += `
+                <div class="mt-3">
+                    <h6>Выбранные требования:</h6>
+                    <div class="selected-requirements-list" style="max-height: 200px; overflow-y: auto;">
+                `;
+                
+                // Получаем все требования для отображения названий
+                const reqResponse = await fetch('/api/requirements/all');
+                const allRequirements = await reqResponse.json();
+                
+                // Создаем словарь для быстрого поиска
+                const reqDict = {};
+                allRequirements.forEach(req => {
+                    reqDict[req.id] = req;
+                });
+                
+                // Показываем выбранные требования
+                settings.selected_requirements.forEach(reqId => {
+                    const req = reqDict[reqId];
+                    if (req) {
+                        html += `
+                        <div class="badge bg-info text-dark me-1 mb-1">
+                            ${req.name}
+                        </div>
+                        `;
+                    }
+                });
+                
+                html += `</div></div>`;
+            }
+            
+            html += `<small class="text-muted">Настройки загружены: ${new Date().toLocaleTimeString()}</small>`;
+            
+            document.getElementById('currentSettings').innerHTML = html;
+            
+        } else if (settings.status === 'not_found') {
+            document.getElementById('currentSettings').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Настройки ИСПДн не найдены. 
+                    <a href="/settings/ispdn" class="alert-link">Создать настройки</a>
+                </div>
+            `;
+        }
+    } catch (error) {
+        document.getElementById('currentSettings').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Ошибка загрузки настроек: ${error}
+            </div>
+        `;
+    }
+}
+
+// Глобальная переменная для хранения данных анализа
+let analysisData = null;
+
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings/ispdn');
+        const settings = await response.json();
+        
+        if (settings.status === 'success' || !settings.status) {
+            // Заполняем форму данными из настроек
+            document.getElementById('orgInfoForm').innerHTML = `
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Название организации</label>
+                        <input type="text" class="form-control" value="${settings.organization?.name || ''}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">ИНН</label>
+                        <input type="text" class="form-control" value="${settings.organization?.inn || ''}" readonly>
+                    </div>
+                </div>`;
+            
+            showNotification('Настройки загружены', 'success');
+        } else {
+            showNotification('Настройки не найдены', 'warning');
+        }
+    } catch (error) {
+        showNotification('Ошибка загрузки настроек', 'error');
+    }
+}
+// В templates/ispdn_analyze.html - обновим startAnalysis()
+
+async function startAnalysis() {
+    const resultsDiv = document.getElementById('analysisResults');
+    resultsDiv.innerHTML = `
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+        </div>
+        <p class="mt-3">Выполняется анализ соответствия...</p>`;
+    
+    try {
+        // Загружаем текущие настройки
+        const settingsResponse = await fetch('/api/settings/ispdn/current');
+        const settings = await settingsResponse.json();
+        
+        if (!settings || settings.status === 'error') {
+            throw new Error('Не удалось загрузить настройки');
+        }
+        
+        const detailLevel = document.getElementById('detailLevel').value;
+        
+        const response = await fetch('/api/ispdn/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                detail_level: detailLevel,
+                company_info: settings.organization,
+                ispdn_settings: settings.ispdn,
+                selected_requirements: settings.selected_requirements || []
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            displayAnalysisResults(data);
+            showNotification('Анализ завершен успешно', 'success');
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Ошибка анализа: ${data.message}
+                </div>`;
+        }
+    } catch (error) {
+        console.error('Ошибка анализа:', error);
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Ошибка анализа: ${error.message}
+            </div>`;
+    }
+}
+function displayAnalysisResults(data) {
+    const resultsDiv = document.getElementById('analysisResults');
+    const report = data.report;
+    const analysis = data.analysis;
+    
+    // Сохраняем данные для использования в других функциях
+    analysisData = data;
+    
+    resultsDiv.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h1 class="display-4 ${analysis.score >= 80 ? 'text-success' : analysis.score >= 60 ? 'text-warning' : 'text-danger'}">
+                            ${analysis.score.toFixed(1)}%
+                        </h1>
+                        <p class="text-muted">Общее соответствие</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-success">${analysis.compliant_count}</h3>
+                        <p class="text-muted">Соответствует</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-danger">${analysis.non_compliant_count}</h3>
+                        <p class="text-muted">Не соответствует</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+
+        
+        <div class="mt-4">
+            <div class="alert ${analysis.protection_level === 'УЗ-1' ? 'alert-success' : 
+                            analysis.protection_level === 'УЗ-2' ? 'alert-warning' : 
+                            analysis.protection_level === 'УЗ-3' ? 'alert-warning' : 'alert-danger'}">
+                <h5 class="alert-heading">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Уровень защищенности: ${analysis.protection_level}
+                </h5>
+                <p><strong>ID отчета:</strong> ${report.id}</p>
+                <p><strong>Сгенерирован:</strong> ${new Date(report.generated_at).toLocaleString()}</p>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <button class="btn btn-success me-2" onclick="downloadReport()">
+                <i class="fas fa-download me-2"></i>Скачать отчет
+            </button>
+            <button class="btn btn-outline-primary" onclick="viewDetails()">
+                <i class="fas fa-eye me-2"></i>Подробный отчет
+            </button>
+        </div>`;
+}
+
+function downloadReport() {
+    try {
+        if (!analysisData || !analysisData.report?.id) {
+            showNotification('Сначала выполните анализ', 'warning');
+            return;
+        }
+        
+        const reportId = analysisData.report.id;
+        
+        // Скачиваем отчет через API
+        fetch(`/api/ispdn/reports/${reportId}/download`)
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                }
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Ошибка скачивания');
+                });
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ispdn_report_${reportId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('Отчет скачивается', 'success');
+            })
+            .catch(error => {
+                console.error('Ошибка скачивания:', error);
+                showNotification('Ошибка скачивания отчета: ' + error.message, 'error');
+            });
+            
+    } catch (error) {
+        console.error('Ошибка в функции downloadReport:', error);
+        showNotification('Ошибка: ' + error, 'error');
+    }
+}
+
+function viewDetails() {
+    try {
+        if (!analysisData || !analysisData.report?.id) {
+            showNotification('Сначала выполните анализ', 'warning');
+            return;
+        }
+        
+        const reportId = analysisData.report.id;
+        
+        // Открываем страницу с детальным отчетом
+        window.open(`/ispdn/reports/${reportId}`, '_blank');
+        
+    } catch (error) {
+        console.error('Ошибка в функции viewDetails:', error);
+        showNotification('Ошибка: ' + error, 'error');
+    }
+}
+
+function showNotification(message, type) {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    const notification = document.createElement('div');
+    notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+
+
+// Загружаем настройки при загрузке страницы
+document.addEventListener('DOMContentLoaded', loadSettings);
+</script>
+
+<style>
+.analysis-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+</style>
+{% endblock %}

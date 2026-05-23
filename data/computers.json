@@ -1,0 +1,31 @@
+[
+  {
+    "id": "f42260a2-5ee5-4779-bc1d-cf6d274c5202",
+    "name": "DESKTOP-V9FDTAD",
+    "description": "",
+    "ip_address": "192.168.0.5",
+    "status": "online",
+    "type": "agent",
+    "criticality": "medium",
+    "tags": [
+      "local",
+      "self",
+      "windows",
+      "local",
+      "self"
+    ],
+    "created_at": "2026-03-21T16:27:36.441103",
+    "last_seen": "2026-03-21T16:27:36.441103",
+    "agent_token": "fa861924795a45de87a74d65b147c0ba",
+    "is_local": true,
+    "os": "Windows",
+    "system_info": {
+      "hostname": "DESKTOP-V9FDTAD",
+      "os": "Windows",
+      "os_version": "10.0.19045",
+      "python_version": "3.11.0"
+    },
+    "last_scan": "2026-03-30T13:54:55.713633",
+    "last_score": 38
+  }
+]

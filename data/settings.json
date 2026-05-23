@@ -1,0 +1,15 @@
+// data/settings/ispdn_settings.json
+{
+  "default_protection_level": "УЗ-3",
+  "check_interval": "weekly",
+  "notifications": {
+    "enabled": true,
+    "email": "security@example.com"
+  },
+  "requirements": [
+    "fstek-17-01",
+    "fstek-17-02",
+    "fstek-21-01",
+    "fstek-21-02"
+  ]
+}

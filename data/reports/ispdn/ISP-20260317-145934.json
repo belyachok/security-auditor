@@ -1,0 +1,156 @@
+{
+  "id": "ISP-20260317-145934",
+  "generated_at": "2026-03-17T14:59:34.558269",
+  "company_info": {
+    "name": "ООО 'Примерная Компания'",
+    "inn": "7701234567",
+    "pdn_category": "Общедоступные",
+    "subjects_count": "more_100k",
+    "threat_type": "TYPE2",
+    "has_security_policy": false,
+    "has_consent_forms": true,
+    "has_roskomnadzor_notification": false,
+    "has_rights_mechanism": true,
+    "has_storage_policy": true,
+    "has_transfer_agreement": false,
+    "has_documentation": {
+      "gost57580_1": false,
+      "gost57580_2": true,
+      "gost57580_3": false,
+      "gost57580_4": true,
+      "gost27001_1": false,
+      "gost27001_2": true,
+      "gost27001_3": false,
+      "gost27001_4": true,
+      "gost27001_5": false,
+      "gost27001_6": true,
+      "gost27001_7": false,
+      "gost27001_8": true
+    }
+  },
+  "analysis_results": {
+    "score": 0.0,
+    "protection_level": "УЗ-4",
+    "results": [
+      {
+        "requirement": {
+          "id": "fz152_1",
+          "name": "Политика обработки персональных данных",
+          "standard": "ФЗ-152, ст. 18.1",
+          "category": "Организационные меры",
+          "description": "Оператор должен разработать и утвердить политику обработки ПДн",
+          "severity": "high",
+          "legal_basis": "Федеральный закон от 27.07.2006 № 152-ФЗ",
+          "check_method": "document_review",
+          "compliance_criteria": [
+            "Документ утвержден",
+            "Документ актуален",
+            "Документ доведен до сотрудников"
+          ],
+          "penalties": [
+            "Штраф до 75 000 руб.",
+            "Дисквалификация до 3 лет"
+          ]
+        },
+        "compliant": false,
+        "compliance_explanation": [],
+        "non_compliance_reasons": [],
+        "recommendations": [
+          "Проверить корректность реализации проверки"
+        ],
+        "issues": [
+          "Ошибка при проверке: ISPDNRequirements.check_fz152_requirement() missing 1 required positional argument: 'system_info'"
+        ],
+        "evidence": [],
+        "category": "Организационные меры",
+        "severity": "high"
+      }
+    ],
+    "compliant_count": 0,
+    "non_compliant_count": 1,
+    "total_requirements": 1,
+    "pdn_category": "Общедоступные",
+    "threat_type": "TYPE2",
+    "certification_checklist": [
+      {
+        "requirement_id": "fz152_1",
+        "requirement_name": "Политика обработки персональных данных",
+        "compliant": false,
+        "certification_required": true,
+        "verification_method": "document_review",
+        "issues": [
+          "Ошибка при проверке: ISPDNRequirements.check_fz152_requirement() missing 1 required positional argument: 'system_info'"
+        ],
+        "recommendations": [
+          "Проверить корректность реализации проверки"
+        ]
+      }
+    ],
+    "checked_requirements_ids": [
+      "fz152_1"
+    ]
+  },
+  "compliance_matrix": [
+    {
+      "Требование": "Политика обработки персональных данных",
+      "Стандарт": "ФЗ-152, ст. 18.1",
+      "Категория": "Организационные меры",
+      "Соответствие": "Нет",
+      "Причины соответствия": [],
+      "Причины несоответствия": []
+    }
+  ],
+  "conclusion": {
+    "risk_level": "Критический",
+    "summary": "Система обработки ПДн не соответствует требованиям (0.0%). Требуются срочные меры. Уровень защищенности: УЗ-4.",
+    "legal_consequences": [
+      "Возможны проверки Роскомнадзора",
+      "Риск административных штрафов",
+      "Возможность приостановки обработки ПДн"
+    ],
+    "compliance_status": "Не соответствует",
+    "next_audit_date": "2026-06-15T14:59:34.558269",
+    "certification_possibility": false
+  },
+  "recommendations": [
+    {
+      "requirement": "Политика обработки персональных данных",
+      "standard": "ФЗ-152, ст. 18.1",
+      "issues": [
+        "Ошибка при проверке: ISPDNRequirements.check_fz152_requirement() missing 1 required positional argument: 'system_info'"
+      ],
+      "recommendations": [
+        "Проверить корректность реализации проверки"
+      ],
+      "priority": "Высокий",
+      "deadline": "30 дней",
+      "responsible": "Ответственный по безопасности",
+      "estimated_cost": "50 000 - 200 000 руб."
+    },
+    {
+      "requirement": "Общие рекомендации",
+      "standard": "Комплексные меры",
+      "issues": [
+        "Необходимость регулярного аудита"
+      ],
+      "recommendations": [
+        "Проводить ежегодный аудит безопасности",
+        "Обучать сотрудников вопросам защиты ПДн",
+        "Обновлять документацию при изменении законодательства"
+      ],
+      "priority": "Средний",
+      "deadline": "Постоянно",
+      "responsible": "Руководство организации",
+      "estimated_cost": "Зависит от масштаба"
+    }
+  ],
+  "certification_checklist": [
+    {
+      "requirement_id": "fz152_1",
+      "requirement_name": "Политика обработки персональных данных",
+      "compliant": false,
+      "certification_required": true,
+      "verification_method": "manual"
+    }
+  ]
+}

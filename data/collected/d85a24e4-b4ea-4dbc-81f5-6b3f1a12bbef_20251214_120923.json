@@ -1,0 +1,124 @@
+{
+  "timestamp": "2025-12-14T12:09:13.438835",
+  "hardware": {
+    "system": "Windows",
+    "hostname": "DESKTOP-V9FDTAD",
+    "cpu": {
+      "name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "cores": 8,
+      "usage": 11.3
+    },
+    "memory": {
+      "total_gb": 15.84,
+      "available_gb": 7.56,
+      "percent": 52.3
+    },
+    "disks": [
+      {
+        "device": "C:\\",
+        "mountpoint": "C:\\",
+        "total_gb": 146.97,
+        "used_gb": 138.04,
+        "free_gb": 8.93,
+        "percent": 93.9
+      },
+      {
+        "device": "D:\\",
+        "mountpoint": "D:\\",
+        "total_gb": 328.92,
+        "used_gb": 324.16,
+        "free_gb": 4.76,
+        "percent": 98.6
+      },
+      {
+        "device": "E:\\",
+        "mountpoint": "E:\\",
+        "total_gb": 465.75,
+        "used_gb": 393.38,
+        "free_gb": 72.37,
+        "percent": 84.5
+      }
+    ]
+  },
+  "software": {
+    "os": {
+      "name": "Windows",
+      "version": "10.0.19045",
+      "release": "10"
+    },
+    "python": {
+      "version": "3.11.0",
+      "implementation": "CPython"
+    },
+    "boot_time": "2025-12-14 10:37:14"
+  },
+  "network": {
+    "hostname": "DESKTOP-V9FDTAD",
+    "ip": "169.254.166.208",
+    "interfaces": [
+      {
+        "name": "Ethernet",
+        "ip": "169.254.172.221",
+        "netmask": "255.255.0.0"
+      },
+      {
+        "name": "Ethernet 2",
+        "ip": "169.254.166.208",
+        "netmask": "255.255.0.0"
+      },
+      {
+        "name": "Подключение по локальной сети* 8",
+        "ip": "169.254.154.121",
+        "netmask": "255.255.0.0"
+      },
+      {
+        "name": "Подключение по локальной сети* 11",
+        "ip": "169.254.4.1",
+        "netmask": "255.255.0.0"
+      },
+      {
+        "name": "Ethernet 4",
+        "ip": "169.254.227.117",
+        "netmask": "255.255.0.0"
+      },
+      {
+        "name": "Беспроводная сеть",
+        "ip": "192.168.0.5",
+        "netmask": "255.255.255.0"
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "ip": "127.0.0.1",
+        "netmask": "255.0.0.0"
+      }
+    ],
+    "open_ports": [
+      135,
+      445,
+      3389
+    ]
+  },
+  "security": {
+    "antivirus": {
+      "installed": true,
+      "enabled": true,
+      "updated": true,
+      "name": "Windows Defender"
+    },
+    "firewall": {
+      "enabled": true,
+      "rules": 15,
+      "profile": "Domain"
+    },
+    "updates": {
+      "last_check": "2025-12-14",
+      "available": 3,
+      "installed": 42
+    },
+    "users": [
+      "admin",
+      "user",
+      "guest"
+    ]
+  }
+}

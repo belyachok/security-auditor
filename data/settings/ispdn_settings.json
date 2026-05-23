@@ -1,0 +1,66 @@
+{
+  "organization": {
+    "name": "ООО 'Примерная Компания'",
+    "inn": "7701234567",
+    "ogrn": "1234567890123",
+    "okved": "",
+    "address": "г. Москва, ул. Примерная, д. 1"
+  },
+  "ispdn": {
+    "pdnCategory": "Иные",
+    "hasEmployees": false,
+    "subjectsCount": "less_100k",
+    "threatType": "TYPE1"
+  },
+  "checks": {
+    "frequency": "weekly",
+    "reportDetail": "detailed",
+    "autoGenerateCert": true,
+    "sendToRegulator": false
+  },
+  "notifications": {
+    "email": "security@example.com",
+    "phone": "+7 (999) 123-45-67",
+    "notifyOnFailures": true,
+    "notifyOnChanges": false,
+    "generateMonthlyReports": true
+  },
+  "selected_requirements": [
+    "fz152_1",
+    "fz152_2",
+    "fz152_3",
+    "fz152_4",
+    "fz152_5",
+    "fz152_6",
+    "fstek17_1",
+    "fstek17_2",
+    "fstek17_3",
+    "fstek17_4",
+    "fstek17_5",
+    "fstek17_6",
+    "fstek17_7",
+    "fstek17_8",
+    "fstek21_1",
+    "fstek21_2",
+    "fstek21_3",
+    "fstek21_4",
+    "fstek21_5",
+    "fstek21_6",
+    "fstek21_7",
+    "fstek21_8",
+    "fstek21_9",
+    "fstek21_10",
+    "gost57580_1",
+    "gost57580_2",
+    "gost57580_3",
+    "gost57580_4",
+    "gost27001_1",
+    "gost27001_2",
+    "gost27001_3",
+    "gost27001_4",
+    "gost27001_5",
+    "gost27001_6",
+    "gost27001_7",
+    "gost27001_8"
+  ]
+}

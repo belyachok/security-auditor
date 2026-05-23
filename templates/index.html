@@ -1,0 +1,70 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Добро пожаловать в Security Auditor</h2>
+
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #2563eb;">
+            <i class="fas fa-desktop"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.total_computers }}</h3>
+            <p>Компьютеров в системе</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #10b981;">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.verified }}</h3>
+            <p>Проверено систем</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #f59e0b;">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.avg_score }}/100</h3>
+            <p>Средняя оценка</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #ef4444;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ stats.total_vulnerabilities }}</h3>
+            <p>Обнаружено уязвимостей</p>
+        </div>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="/computers/new" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Добавить компьютер
+    </a>
+    <a href="/verification" class="btn btn-secondary">
+        <i class="fas fa-play"></i> Запустить проверку
+    </a>
+    <a href="/reports" class="btn btn-outline">
+        <i class="fas fa-download"></i> Смотреть отчеты
+    </a>
+</div>
+
+<div class="recent-section">
+    <h3>Последние проверки</h3>
+    <div class="empty-state">
+        <i class="fas fa-chart-bar fa-3x"></i>
+        <p>Здесь будут отображаться последние проверки</p>
+    </div>
+</div>
+{% endblock %}

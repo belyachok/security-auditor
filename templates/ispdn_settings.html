@@ -1,0 +1,848 @@
+<!-- templates/ispdn_settings.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-shield-alt text-primary me-2"></i>Настройки ИСПДн</h2>
+    <p class="subtitle">Конфигурация параметров оценки соответствия требованиям защиты персональных данных</p>
+</div>
+
+<div class="settings-container">
+    <!-- Основная информация об организации -->
+    <div class="settings-group card mb-4">
+        <div class="card-header bg-white">
+            <h3 class="mb-0">
+                <i class="fas fa-building text-primary me-2"></i>Информация об организации
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Наименование организации *</label>
+                    <input type="text" class="form-control" id="orgName" 
+                           value="ООО 'Примерная Компания'" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">ИНН</label>
+                    <input type="text" class="form-control" id="inn" 
+                           value="7701234567" maxlength="12">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">ОГРН</label>
+                    <input type="text" class="form-control" id="ogrn" 
+                           value="1234567890123">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Код по ОКВЭД</label>
+                    <input type="text" class="form-control" id="okved" 
+                           value="62.01">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Юридический адрес</label>
+                    <textarea class="form-control" id="address" rows="2">г. Москва, ул. Примерная, д. 1</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Характеристики ИСПДн -->
+    <div class="settings-group card mb-4">
+        <div class="card-header bg-white">
+            <h3 class="mb-0">
+                <i class="fas fa-database text-primary me-2"></i>Характеристики ИСПДн
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Категория персональных данных *</label>
+                    <select class="form-control" id="pdnCategory">
+                        <option value="Специальные">Специальные</option>
+                        <option value="Биометрические">Биометрические</option>
+                        <option value="Общедоступные">Общедоступные</option>
+                        <option value="Иные" selected>Иные</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Обрабатываются ПДн сотрудников?</label>
+                    <select class="form-control" id="hasEmployees">
+                        <option value="true">Да</option>
+                        <option value="false" selected>Нет</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Количество субъектов ПДн</label>
+                    <select class="form-control" id="subjectsCount">
+                        <option value="less_100k">Менее 100 000</option>
+                        <option value="more_100k">Более 100 000</option>
+                        <option value="unknown" selected>Не определено</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Тип актуальных угроз</label>
+                    <select class="form-control" id="threatType">
+                        <option value="TYPE1">I (НДВ в СПО)</option>
+                        <option value="TYPE2">II (НДВ в ППО)</option>
+                        <option value="TYPE3" selected>III (нет НДВ)</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        На основе этих параметров будет определен уровень защищенности (УЗ) ИСПДн
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+ 
+    <!-- Настройки проверок -->
+    <div class="settings-group card mb-4">
+        <div class="card-header bg-white">
+            <h3 class="mb-0">
+                <i class="fas fa-check-circle text-primary me-2"></i>Параметры проверок
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Частота автоматических проверок</label>
+                    <select class="form-control" id="checkFrequency">
+                        <option value="daily">Ежедневно</option>
+                        <option value="weekly" selected>Еженедельно</option>
+                        <option value="monthly">Ежемесячно</option>
+                        <option value="quarterly">Ежеквартально</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Уровень детализации отчета</label>
+                    <select class="form-control" id="reportDetail">
+                        <option value="detailed" selected>Детальный</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoGenerateCert" checked>
+                        <label class="form-check-label" for="autoGenerateCert">
+                            Автоматически генерировать сертификат соответствия
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sendToRegulator">
+                        <label class="form-check-label" for="sendToRegulator">
+                            Отправлять отчеты в регулирующие органы
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-group card mb-4">
+        <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">
+                    <i class="fas fa-clipboard-check text-primary me-2"></i>Выбор требований для проверки
+                </h3>
+                <span id="requirementsCounter" class="badge bg-primary">
+                    Выбрано: 0 из {{ requirements|length }}
+                </span>
+            </div>
+        </div>
+            <div class="card-body">
+        <!-- Группировка по стандартам -->
+        {% set standards = {} %}
+        {% for requirement in requirements %}
+            {% set standard = requirement.standard %}
+            {% if standard not in standards %}
+                {% set _ = standards.update({standard: []}) %}
+            {% endif %}
+            {% set _ = standards[standard].append(requirement) %}
+        {% endfor %}
+        
+        <div class="row">
+            {% for standard_name, reqs in standards.items() %}
+                {% for requirement in reqs %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input requirement-check" 
+                                    type="checkbox" 
+                                    value="{{ requirement.id }}" 
+                                    id="req_{{ requirement.id }}"
+                                    data-standard="{{ requirement.standard }}"
+                                    data-severity="{{ requirement.severity }}">
+                                <label class="form-check-label" for="req_{{ requirement.id }}">
+                                    <strong>{{ requirement.standard }}</strong>
+                                    <div class="mt-1 fw-bold">{{ requirement.name }}</div>
+                                    <small class="text-muted d-block">{{ requirement.description[:100] }}...</small>
+                                    <div class="mt-2">
+                                        <span class="badge 
+                                            {% if requirement.severity == 'high' %}bg-danger
+                                            {% elif requirement.severity == 'medium' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {% if requirement.severity == 'high' %}Высокая
+                                            {% elif requirement.severity == 'medium' %}Средняя
+                                            {% else %}Низкая{% endif %}
+                                        </span>
+                                        <span class="badge bg-info">{{ requirement.category }}</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        
+    <!-- Кнопки управления -->
+    <div class="mt-3">
+        <div class="btn-group flex-wrap" role="group">
+            <button class="btn btn-outline-primary btn-sm me-2" onclick="selectAllRequirements()">
+                <i class="fas fa-check-double me-1"></i>Выбрать все
+            </button>
+            <button class="btn btn-outline-secondary btn-sm me-2" onclick="deselectAllRequirements()">
+                <i class="fas fa-times me-1"></i>Снять все
+            </button>
+            <button class="btn btn-outline-danger btn-sm me-2" onclick="selectBySeverity('high')">
+                <i class="fas fa-exclamation-triangle me-1"></i>Только высокие
+            </button>
+        </div>
+        
+        <div class="btn-group flex-wrap mt-2 mt-md-0 ms-md-2" role="group">
+            <button class="btn btn-outline-info btn-sm me-2" onclick="selectByStandard('ФЗ-152')">
+                <i class="fas fa-filter me-1"></i>ФЗ-152
+            </button>
+            <button class="btn btn-outline-success btn-sm me-2" onclick="selectByStandard('ГОСТ')">
+                <i class="fas fa-filter me-1"></i>ГОСТ
+            </button>
+            <button class="btn btn-outline-warning btn-sm me-2" onclick="selectByStandard('ФСТЭК')">
+                <i class="fas fa-filter me-1"></i>ФСТЭК
+            </button>
+        </div>
+        
+    </div>
+
+    <!-- Настройки уведомлений -->
+    <div class="settings-group card mb-4">
+        <div class="card-header bg-white">
+            <h3 class="mb-0">
+                <i class="fas fa-bell text-primary me-2"></i>Уведомления и отчетность
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Email для уведомлений *</label>
+                    <input type="email" class="form-control" id="notificationEmail" 
+                           value="security@example.com" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Телефон для экстренных уведомлений</label>
+                    <input type="tel" class="form-control" id="emergencyPhone" 
+                           value="+7 (999) 123-45-67">
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="notifyOnFailures" checked>
+                        <label class="form-check-label" for="notifyOnFailures">
+                            Уведомлять о несоответствиях
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="notifyOnChanges">
+                        <label class="form-check-label" for="notifyOnChanges">
+                            Уведомлять об изменениях в законодательстве
+                        </label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="generateMonthlyReports" checked>
+                        <label class="form-check-label" for="generateMonthlyReports">
+                            Автоматически генерировать месячные отчеты
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Кнопки действий -->
+    <div class="settings-actions card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <button class="btn btn-primary" onclick="saveSettings()">
+                        <i class="fas fa-save me-2"></i>Сохранить настройки
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно загрузки методики -->
+<div class="modal fade" id="uploadMethodologyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Загрузка методики оценки</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Выберите файл</label>
+                    <input type="file" class="form-control" id="methodologyFile" 
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.txt">
+                    <div class="form-text">
+                        Поддерживаемые форматы: PDF, Word, Excel, текстовые файлы
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Описание методики</label>
+                    <textarea class="form-control" id="methodologyDescription" rows="3" 
+                              placeholder="Опишите методику оценки, её назначение и применение..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Тип методики</label>
+                    <select class="form-control" id="methodologyType">
+                        <option value="audit">Методика аудита</option>
+                        <option value="assessment">Методика оценки</option>
+                        <option value="testing">Методика тестирования</option>
+                        <option value="analysis">Методика анализа</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="confirmUpload()">
+                    <i class="fas fa-upload me-1"></i>Загрузить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+// Загруженные методики (временное хранилище)
+let uploadedMethodologies = [];
+function selectBySeverity(severity) {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        const reqSeverity = cb.dataset.severity;
+        cb.checked = (reqSeverity === severity);
+    });
+    updateRequirementsCount();
+}
+
+function selectByMultipleStandards(standards) {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        const reqStandard = cb.dataset.standard;
+        cb.checked = standards.some(standard => reqStandard && reqStandard.includes(standard));
+    });
+    updateRequirementsCount();
+}
+
+function uploadMethodology() {
+    const modal = new bootstrap.Modal(document.getElementById('uploadMethodologyModal'));
+    modal.show();
+}
+
+function confirmUpload() {
+    const fileInput = document.getElementById('methodologyFile');
+    const description = document.getElementById('methodologyDescription').value;
+    const type = document.getElementById('methodologyType').value;
+    
+    if (!fileInput.files[0]) {
+        alert('Пожалуйста, выберите файл');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const methodology = {
+        id: 'method-' + Date.now(),
+        name: file.name,
+        size: (file.size / 1024).toFixed(2) + ' KB',
+        description: description,
+        type: type,
+        uploaded: new Date().toLocaleDateString()
+    };
+    
+    uploadedMethodologies.push(methodology);
+    updateMethodologyList();
+    
+    // Сброс формы
+    fileInput.value = '';
+    document.getElementById('methodologyDescription').value = '';
+    
+    // Закрытие модального окна
+    bootstrap.Modal.getInstance(document.getElementById('uploadMethodologyModal')).hide();
+    
+    alert('Методика успешно загружена!');
+}
+
+function updateMethodologyList() {
+    const container = document.getElementById('methodologyList');
+    
+    if (uploadedMethodologies.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Нет загруженных методик. Загрузите методики оценки для проведения аудита.
+            </div>`;
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    uploadedMethodologies.forEach(method => {
+        html += `
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">${method.name}</h6>
+                    <small class="text-muted">${method.description}</small>
+                    <div class="mt-1">
+                        <span class="badge bg-secondary me-2">${method.type}</span>
+                        <span class="badge bg-light text-dark">${method.size}</span>
+                        <span class="badge bg-light text-dark">${method.uploaded}</span>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteMethodology('${method.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function deleteMethodology(id) {
+    if (confirm('Удалить эту методику?')) {
+        uploadedMethodologies = uploadedMethodologies.filter(m => m.id !== id);
+        updateMethodologyList();
+    }
+}
+
+function selectAllRequirements() {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        cb.checked = true;
+    });
+}
+
+function deselectAllRequirements() {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        cb.checked = false;
+    });
+}
+
+function selectByStandard(standard) {
+    // Здесь должна быть логика фильтрации по стандарту
+    alert('Функция фильтрации по стандарту будет реализована в следующей версии');
+}
+// В файле templates/ispdn_settings.html - обновим функцию saveSettings()
+// В templates/ispdn_settings.html - обновим функцию saveSettings()
+
+function saveSettings() {
+    // Получаем выбранные требования
+    const selectedRequirements = getSelectedRequirements();
+    
+    const settings = {
+        organization: {
+            name: document.getElementById('orgName').value,
+            inn: document.getElementById('inn').value,
+            ogrn: document.getElementById('ogrn').value,
+            okved: document.getElementById('okved').value,
+            address: document.getElementById('address').value
+        },
+        ispdn: {
+            pdnCategory: document.getElementById('pdnCategory').value,
+            hasEmployees: document.getElementById('hasEmployees').value === 'true',
+            subjectsCount: document.getElementById('subjectsCount').value,
+            threatType: document.getElementById('threatType').value
+        },
+        checks: {
+            frequency: document.getElementById('checkFrequency').value,
+            reportDetail: document.getElementById('reportDetail').value,
+            autoGenerateCert: document.getElementById('autoGenerateCert').checked,
+            sendToRegulator: document.getElementById('sendToRegulator').checked
+        },
+        notifications: {
+            email: document.getElementById('notificationEmail').value,
+            phone: document.getElementById('emergencyPhone').value,
+            notifyOnFailures: document.getElementById('notifyOnFailures').checked,
+            notifyOnChanges: document.getElementById('notifyOnChanges').checked,
+            generateMonthlyReports: document.getElementById('generateMonthlyReports').checked
+        },
+        // Важное: сохраняем выбранные требования
+        selected_requirements: selectedRequirements
+    };
+    
+    // Сохраняем в localStorage для быстрого доступа
+    localStorage.setItem('ispdnSettings', JSON.stringify(settings));
+    
+    // Сохраняем на сервер
+    fetch('/api/settings/ispdn', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showNotification('Настройки успешно сохранены!', 'success');
+        } else {
+            showNotification('Ошибка при сохранении: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('Ошибка сети: ' + error, 'error');
+    });
+}
+
+// Функция для получения выбранных требований
+function getSelectedRequirements() {
+    const selected = [];
+    document.querySelectorAll('.requirement-check:checked').forEach(cb => {
+        selected.push(cb.value);
+    });
+    return selected;
+}
+
+// Функция для выбора всех требований
+function selectAllRequirements() {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        cb.checked = true;
+    });
+    updateRequirementsCount();
+}
+
+// Функция для снятия всех требований
+function deselectAllRequirements() {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        cb.checked = false;
+    });
+    updateRequirementsCount();
+}
+
+// Функция для фильтрации по стандарту
+function selectByStandard(standard) {
+    document.querySelectorAll('.requirement-check').forEach(cb => {
+        // Сравниваем data-standard с выбранным стандартом
+        const reqStandard = cb.dataset.standard;
+        cb.checked = (reqStandard && reqStandard.includes(standard));
+    });
+    updateRequirementsCount();
+}
+
+// Функция для обновления счетчика
+function updateRequirementsCount() {
+    const selectedCount = getSelectedRequirements().length;
+    const totalCount = document.querySelectorAll('.requirement-check').length;
+    
+    // Показываем счетчик
+    const counter = document.getElementById('requirementsCounter');
+    if (!counter) {
+        // Создаем счетчик если его нет
+        const counterElement = document.createElement('div');
+        counterElement.id = 'requirementsCounter';
+        counterElement.className = 'mt-2 text-info';
+        document.querySelector('.settings-group:last-child .card-body').appendChild(counterElement);
+    }
+    
+    document.getElementById('requirementsCounter').textContent = 
+        `Выбрано: ${selectedCount} из ${totalCount} требований`;
+}
+
+function getSelectedRequirements() {
+    const selected = [];
+    document.querySelectorAll('.requirement-check:checked').forEach(cb => {
+        selected.push(cb.value);
+    });
+    return selected;
+}
+
+// Обновим функцию загрузки настроек
+async function loadCurrentSettings() {
+    try {
+        const response = await fetch('/api/settings/ispdn/current');
+        const settings = await response.json();
+        
+        if (settings && !settings.status) {
+            // Заполняем форму
+            if (settings.organization) {
+                document.getElementById('orgName').value = settings.organization.name || '';
+                document.getElementById('inn').value = settings.organization.inn || '';
+                document.getElementById('ogrn').value = settings.organization.ogrn || '';
+                document.getElementById('okved').value = settings.organization.okved || '';
+                document.getElementById('address').value = settings.organization.address || '';
+            }
+            
+            if (settings.ispdn) {
+                document.getElementById('pdnCategory').value = settings.ispdn.pdnCategory || 'Иные';
+                document.getElementById('hasEmployees').value = settings.ispdn.hasEmployees ? 'true' : 'false';
+                document.getElementById('subjectsCount').value = settings.ispdn.subjectsCount || 'less_100k';
+                document.getElementById('threatType').value = settings.ispdn.threatType || 'TYPE3';
+            }
+            
+            if (settings.checks) {
+                document.getElementById('checkFrequency').value = settings.checks.frequency || 'weekly';
+                document.getElementById('reportDetail').value = settings.checks.reportDetail || 'detailed';
+                document.getElementById('autoGenerateCert').checked = settings.checks.autoGenerateCert || false;
+                document.getElementById('sendToRegulator').checked = settings.checks.sendToRegulator || false;
+            }
+            
+            if (settings.notifications) {
+                document.getElementById('notificationEmail').value = settings.notifications.email || '';
+                document.getElementById('emergencyPhone').value = settings.notifications.phone || '';
+                document.getElementById('notifyOnFailures').checked = settings.notifications.notifyOnFailures || false;
+                document.getElementById('notifyOnChanges').checked = settings.notifications.notifyOnChanges || false;
+                document.getElementById('generateMonthlyReports').checked = settings.notifications.generateMonthlyReports || false;
+            }
+            
+            // Восстанавливаем выбранные требования
+            if (settings.selected_requirements) {
+                settings.selected_requirements.forEach(reqId => {
+                    const checkbox = document.querySelector(`.requirement-check[value="${reqId}"]`);
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+            
+            // Обновляем отображение текущих настроек
+            updateCurrentSettingsDisplay(settings);
+            
+        } else if (settings.status === 'not_found') {
+            document.getElementById('currentSettings').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Настройки ИСПДн не найдены. 
+                    <a href="/settings/ispdn" class="alert-link">Создать настройки</a>
+                </div>
+            `;
+        }
+    } catch (error) {
+        document.getElementById('currentSettings').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                Ошибка загрузки настроек: ${error}
+            </div>
+        `;
+    }
+}
+
+function updateCurrentSettingsDisplay(settings) {
+    const display = document.getElementById('currentSettings');
+    if (display) {
+        let html = `
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Организация:</strong> ${settings.organization?.name || 'Не указано'}</p>
+                    <p><strong>ИНН:</strong> ${settings.organization?.inn || 'Не указано'}</p>
+                    <p><strong>Категория ПДн:</strong> ${settings.ispdn?.pdnCategory || 'Не указано'}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Тип угроз:</strong> ${settings.ispdn?.threatType || 'Не указано'}</p>
+                    <p><strong>Субъектов:</strong> ${settings.ispdn?.subjectsCount || 'Не указано'}</p>
+                    <p><strong>Выбрано требований:</strong> ${settings.selected_requirements?.length || 0} из 36</p>
+                </div>
+            </div>
+            <small class="text-muted">Настройки загружены: ${new Date().toLocaleTimeString()}</small>
+        `;
+        
+        display.innerHTML = html;
+    }
+}
+
+function loadDefaults() {
+    if (confirm('Загрузить настройки по умолчанию? Текущие настройки будут утеряны.')) {
+        // Загрузка настроек по умолчанию
+        document.getElementById('checkFrequency').value = 'weekly';
+        document.getElementById('reportDetail').value = 'detailed';
+        document.getElementById('autoGenerateCert').checked = true;
+        document.getElementById('sendToRegulator').checked = false;
+        
+        showNotification('Настройки по умолчанию загружены', 'info');
+    }
+}
+
+function resetSettings() {
+    if (confirm('Вы уверены, что хотите сбросить все настройки? Это действие нельзя отменить.')) {
+        localStorage.removeItem('ispdnSettings');
+        uploadedMethodologies = [];
+        updateMethodologyList();
+        
+        // Сброс всех полей формы
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.type === 'checkbox') {
+                el.checked = false;
+            } else if (el.type !== 'file') {
+                el.value = '';
+            }
+        });
+        
+        showNotification('Все настройки сброшены', 'warning');
+    }
+}
+
+function testSettings() {
+    // Тестовая проверка настроек
+    const email = document.getElementById('notificationEmail').value;
+    if (!email || !email.includes('@')) {
+        showNotification('Пожалуйста, укажите корректный email', 'error');
+        return;
+    }
+    
+    showNotification('Настройки проверены успешно!', 'success');
+}
+
+function showNotification(message, type) {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    const notification = document.createElement('div');
+    notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+<!-- В начале скрипта добавить -->
+
+// Загрузка сохраненных настроек при загрузке страницы
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        const response = await fetch('/api/settings/ispdn/current');
+        const result = await response.json();
+        
+        if (result.status === 'success' || !result.status) {
+            const settings = result;
+            // Заполняем форму
+            if (settings.organization) {
+                document.getElementById('orgName').value = settings.organization.name || '';
+                document.getElementById('inn').value = settings.organization.inn || '';
+                document.getElementById('ogrn').value = settings.organization.ogrn || '';
+                document.getElementById('okved').value = settings.organization.okved || '';
+                document.getElementById('address').value = settings.organization.address || '';
+            }
+            
+            if (settings.ispdn) {
+                document.getElementById('pdnCategory').value = settings.ispdn.pdnCategory || 'Иные';
+                document.getElementById('hasEmployees').value = settings.ispdn.hasEmployees ? 'true' : 'false';
+                document.getElementById('subjectsCount').value = settings.ispdn.subjectsCount || 'less_100k';
+                document.getElementById('threatType').value = settings.ispdn.threatType || 'TYPE3';
+            }
+            
+            if (settings.checks) {
+                document.getElementById('checkFrequency').value = settings.checks.frequency || 'weekly';
+                document.getElementById('reportDetail').value = settings.checks.reportDetail || 'detailed';
+                document.getElementById('autoGenerateCert').checked = settings.checks.autoGenerateCert || false;
+                document.getElementById('sendToRegulator').checked = settings.checks.sendToRegulator || false;
+            }
+            
+            if (settings.notifications) {
+                document.getElementById('notificationEmail').value = settings.notifications.email || '';
+                document.getElementById('emergencyPhone').value = settings.notifications.phone || '';
+                document.getElementById('notifyOnFailures').checked = settings.notifications.notifyOnFailures || false;
+                document.getElementById('notifyOnChanges').checked = settings.notifications.notifyOnChanges || false;
+                document.getElementById('generateMonthlyReports').checked = settings.notifications.generateMonthlyReports || false;
+            }
+            
+            // Восстанавливаем выбранные требования
+            if (settings.selected_requirements) {
+                settings.selected_requirements.forEach(reqId => {
+                    const checkbox = document.querySelector(`.requirement-check[value="${reqId}"]`);
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+            
+            console.log('Настройки загружены:', settings);
+        } else {
+            console.log('Настройки не найдены, будут использованы значения по умолчанию');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки настроек:', error);
+    }
+});
+</script>
+
+<style>
+.settings-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.settings-group {
+    margin-bottom: 2rem;
+}
+
+.settings-group .card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+}
+
+.settings-group h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.requirement-check:checked + label {
+    color: #198754;
+    font-weight: 600;
+}
+
+.requirement-check + label small {
+    font-size: 0.85rem;
+}
+
+.settings-actions {
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.settings-actions .card-body {
+    padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .settings-actions .d-flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .settings-actions .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+{% endblock %}

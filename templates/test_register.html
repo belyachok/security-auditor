@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест регистрации</title>
+</head>
+<body>
+    <h1>Тест регистрации ПК</h1>
+    <form id="testForm">
+        <input type="text" name="name" placeholder="Имя компьютера" required>
+        <textarea name="description" placeholder="Описание"></textarea>
+        <input type="text" name="tags" placeholder="Теги через запятую">
+        <button type="submit">Зарегистрировать</button>
+    </form>
+    
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            
+            // Попробуем разные endpoint'ы
+            const endpoints = [
+                '/api/agents/register',
+                '/agents/register',
+                '/api/test-register'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert(`Успех! Работает endpoint: ${endpoint}\n${JSON.stringify(result, null, 2)}`);
+                        return;
+                    }
+                } catch (error) {
+                    console.log(`Endpoint ${endpoint} не работает:`, error);
+                }
+            }
+            
+            alert('Ни один endpoint не сработал');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h2>Отчет ИСПДн</h2>
+            <p class="subtitle">Детальный анализ соответствия требованиям защиты персональных данных</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/ispdn/reports" class="btn btn-outline">
+                <i class="fas fa-arrow-left"></i> Назад к списку
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if report %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0"><i class="fas fa-info-circle me-2"></i>Информация об отчете</h4>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <p><strong>ID отчета:</strong> {{ report.id }}</p>
+                <p><strong>Дата создания:</strong> {{ report.generated_at|datetime if report.generated_at else 'Не указана' }}</p>
+            </div>
+            <div class="col-md-4">
+                {% if report.company_info %}
+                    <p><strong>Организация:</strong> {{ report.company_info.name }}</p>
+                    <p><strong>ИНН:</strong> {{ report.company_info.inn }}</p>
+                {% endif %}
+            </div>
+            <div class="col-md-4">
+                {% if report.analysis_results %}
+                    <p><strong>Оценка соответствия:</strong> {{ report.analysis_results.score }}%</p>
+                    <p><strong>Уровень защищенности:</strong> {{ report.analysis_results.protection_level }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if report.analysis_results %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Результаты анализа</h4>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-3 text-center">
+                <div class="display-4 {% if report.analysis_results.score >= 80 %}text-success{% elif report.analysis_results.score >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ report.analysis_results.score }}%
+                </div>
+                <p class="text-muted">Общее соответствие</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-4 text-success">
+                    {{ report.analysis_results.compliant_count }}
+                </div>
+                <p class="text-muted">Соответствует</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-4 text-danger">
+                    {{ report.analysis_results.non_compliant_count }}
+                </div>
+                <p class="text-muted">Не соответствует</p>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-4">
+                    {{ report.analysis_results.total_requirements }}
+                </div>
+                <p class="text-muted">Всего требований</p>
+            </div>
+        </div>
+        
+        {% if report.analysis_results.results %}
+        <div class="mt-4">
+            <h5>Детали по требованиям:</h5>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Требование</th>
+                            <th>Стандарт</th>
+                            <th>Категория</th>
+                            <th>Соответствие</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in report.analysis_results.results %}
+                        <tr>
+                            <td>{{ result.requirement.name }}</td>
+                            <td><small>{{ result.requirement.standard }}</small></td>
+                            <td>{{ result.requirement.category }}</td>
+                            <td>
+                                {% if result.compliant %}
+                                <span class="badge bg-success">Соответствует</span>
+                                {% else %}
+                                <span class="badge bg-danger">Не соответствует</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- После блока с анализом результатов -->
+{% if report.analysis_results %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0"><i class="fas fa-table me-2"></i>Детальная таблица соответствия</h4>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Требование</th>
+                        <th>Стандарт</th>
+                        <th>Категория</th>
+                        <th>Соответствие</th>
+                        <th>Почему соответствует</th>
+                        <th>Почему не соответствует</th>
+                        <th>Рекомендации</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in report.analysis_results.results %}
+                    <tr class="{% if result.compliant %}table-success{% else %}table-danger{% endif %}">
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <strong>{{ result.requirement.name }}</strong><br>
+                            <small class="text-muted">{{ result.requirement.description }}</small>
+                        </td>
+                        <td>
+                            <code>{{ result.requirement.standard }}</code>
+                        </td>
+                        <td>{{ result.requirement.category }}</td>
+                        <td>
+                            {% if result.compliant %}
+                            <span class="badge bg-success">Соответствует</span>
+                            {% else %}
+                            <span class="badge bg-danger">Не соответствует</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if result.compliant and result.compliance_explanation %}
+                            <ul class="list-unstyled mb-0">
+                                {% for reason in result.compliance_explanation %}
+                                <li><small><i class="fas fa-check text-success me-1"></i>{{ reason }}</small></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not result.compliant and result.non_compliance_reasons %}
+                            <ul class="list-unstyled mb-0">
+                                {% for reason in result.non_compliance_reasons %}
+                                <li><small><i class="fas fa-times text-danger me-1"></i>{{ reason }}</small></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if result.recommendations %}
+                            <ul class="list-unstyled mb-0">
+                                {% for rec in result.recommendations %}
+                                <li><small><i class="fas fa-lightbulb text-warning me-1"></i>{{ rec }}</small></li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Детальное заключение -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0"><i class="fas fa-file-contract me-2"></i>Подробное заключение и рекомендации</h4>
+    </div>
+    <div class="card-body">
+        {% if report.conclusion %}
+        <div class="row">
+            <div class="col-md-8">
+                <h5>Общая оценка:</h5>
+                <div class="alert {% if report.conclusion.risk_level == 'Низкий' %}alert-success{% elif report.conclusion.risk_level == 'Средний' %}alert-warning{% else %}alert-danger{% endif %}">
+                    <h5 class="alert-heading">
+                        Уровень риска: {{ report.conclusion.risk_level }}
+                        {% if report.conclusion.certification_possibility %}
+                        <span class="badge bg-success ms-2">Может быть сертифицирована</span>
+                        {% else %}
+                        <span class="badge bg-danger ms-2">Требует доработки для сертификации</span>
+                        {% endif %}
+                    </h5>
+                    <p class="mb-2">{{ report.conclusion.summary }}</p>
+                    
+                    {% if report.conclusion.legal_consequences %}
+                    <hr>
+                    <h6><i class="fas fa-gavel me-2"></i>Правовые последствия:</h6>
+                    <ul class="mb-0">
+                        {% for consequence in report.conclusion.legal_consequences %}
+                        <li>{{ consequence }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <h5>Ключевые показатели:</h5>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span>Статус соответствия:</span>
+                        <strong>{{ report.conclusion.compliance_status }}</strong>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span>Следующий аудит:</span>
+                        <strong>{{ report.conclusion.next_audit_date|datetime('%d.%m.%Y') }}</strong>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span>Возможность сертификации:</span>
+                        <strong>
+                            {% if report.conclusion.certification_possibility %}
+                            <span class="badge bg-success">Да</span>
+                            {% else %}
+                            <span class="badge bg-danger">Нет</span>
+                            {% endif %}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h5 class="mt-4">Детальный план действий:</h5>
+        {% if report.recommendations %}
+        <div class="row">
+            {% for rec in report.recommendations %}
+            <div class="col-md-6 mb-3">
+                <div class="card {% if rec.priority == 'Высокий' %}border-danger{% elif rec.priority == 'Средний' %}border-warning{% else %}border-secondary{% endif %}">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">{{ rec.requirement }}</h6>
+                            <span class="badge {% if rec.priority == 'Высокий' %}bg-danger{% elif rec.priority == 'Средний' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                {{ rec.priority }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Стандарт:</strong> {{ rec.standard }}</p>
+                        
+                        {% if rec.issues %}
+                        <p><strong>Выявленные проблемы:</strong></p>
+                        <ul>
+                            {% for issue in rec.issues %}
+                            <li>{{ issue }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        
+                        {% if rec.recommendations %}
+                        <p><strong>Рекомендации:</strong></p>
+                        <ul>
+                            {% for recommendation in rec.recommendations %}
+                            <li>{{ recommendation }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>Срок: {{ rec.deadline }} |
+                                <i class="fas fa-user me-1 ms-2"></i>Ответственный: {{ rec.responsible }} |
+                                <i class="fas fa-ruble-sign me-1 ms-2"></i>Стоимость: {{ rec.estimated_cost }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Сертификационный чек-лист -->
+{% if report.certification_checklist %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Чек-лист для сертификации</h4>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Требование</th>
+                        <th>Обязательно для сертификации</th>
+                        <th>Соответствует</th>
+                        <th>Метод проверки</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report.certification_checklist %}
+                    <tr>
+                        <td>{{ item.requirement_name }}</td>
+                        <td>
+                            {% if item.certification_required %}
+                            <span class="badge bg-danger">Критическое</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Рекомендуемое</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.compliant %}
+                            <span class="badge bg-success">Да</span>
+                            {% else %}
+                            <span class="badge bg-danger">Нет</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.verification_method }}</td>
+                        <td>
+                            {% if item.compliant %}
+                            <span class="badge bg-success">Готово</span>
+                            {% else %}
+                            <span class="badge bg-danger">Требует внимания</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if report.conclusion %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Заключение и рекомендации</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert {% if report.conclusion.risk_level == 'Низкий' %}alert-success{% elif report.conclusion.risk_level == 'Средний' %}alert-warning{% else %}alert-danger{% endif %}">
+            <h5 class="alert-heading">Уровень риска: {{ report.conclusion.risk_level }}</h5>
+            <p>{{ report.conclusion.conclusion }}</p>
+        </div>
+        
+        {% if report.conclusion.recommendations %}
+        <h5 class="mt-4">Рекомендации:</h5>
+        <ul class="list-group">
+            {% for rec in report.conclusion.recommendations %}
+            <li class="list-group-item">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                {{ rec }}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="action-buttons mt-4">
+    <button class="btn btn-success" onclick="downloadJson()">
+        <i class="fas fa-download me-2"></i>Скачать JSON
+    </button>
+    <a href="/ispdn/analyze" class="btn btn-outline-primary">
+        <i class="fas fa-redo me-2"></i>Новый анализ
+    </a>
+</div>
+
+<script>
+function downloadJson() {
+    try {
+        // Используйте JSON.stringify для данных, которые уже есть в JavaScript
+        let reportData = null;
+        try {
+            // Если данные уже в контексте страницы
+            reportData = JSON.parse('{{ report|tojson|safe }}');
+        } catch (e) {
+            // Альтернативный способ - создать объект из данных на странице
+            reportData = {
+                id: "{{ report.id|default('unknown', true) }}",
+                generated_at: "{{ report.generated_at|default('', true) }}",
+                // добавьте другие поля по необходимости
+            };
+        }
+        
+        const reportJson = JSON.stringify(reportData, null, 2);
+        const blob = new Blob([reportJson], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ispdn_report_{{ report.id|default("unknown", true) }}.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        alert('Ошибка при скачивании: ' + error);
+    }
+}
+</script>
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    Отчет не найден или поврежден
+</div>
+{% endif %}
+{% endblock %}

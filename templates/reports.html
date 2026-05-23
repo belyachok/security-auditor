@@ -1,0 +1,258 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Отчеты о проверках</h2>
+    <p class="subtitle">Просмотр и управление результатами проверок безопасности</p>
+</div>
+
+<div class="action-buttons">
+    <a href="/verification" class="btn btn-primary">
+        <i class="fas fa-play"></i> Новая проверка
+    </a>
+    {% if reports %}
+    <button class="btn btn-outline-danger" onclick="confirmDeleteAll()">
+        <i class="fas fa-trash"></i> Удалить все
+    </button>
+    {% endif %}
+</div>
+
+{% if reports %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #2563eb;">
+            <i class="fas fa-file-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ reports|length }}</h3>
+            <p>Всего отчетов</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #10b981;">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ reports|selectattr('score', '>=', 80)|list|length }}</h3>
+            <p>Высокие оценки</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #f59e0b;">
+            <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ reports|selectattr('score', '>=', 60)|selectattr('score', '<', 80)|list|length }}</h3>
+            <p>Средние оценки</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #ef4444;">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ reports|selectattr('score', '<', 60)|list|length }}</h3>
+            <p>Низкие оценки</p>
+        </div>
+    </div>
+</div>
+
+<div class="reports-list">
+    {% for report in reports %}
+    <div class="report-card">
+        <div class="report-header">
+            <div class="report-icon">
+                {% set score_num = report.score|default(0, true)|int %}
+                {% if score_num >= 80 %}
+                    <i class="fas fa-check-circle text-success"></i>
+                {% elif score_num >= 60 %}
+                    <i class="fas fa-exclamation-circle text-warning"></i>
+                {% else %}
+                    <i class="fas fa-times-circle text-danger"></i>
+                {% endif %}
+            </div>
+            <div class="report-info">
+                <h4>{{ report.computer_name or report.computer_id }}</h4>
+                <div class="report-meta">
+                    <span class="text-muted">
+                        <i class="fas fa-calendar"></i> 
+                        {{ report.timestamp|datetime if report.timestamp else report.formatted_date }}
+                    </span>
+                    <span class="badge">{{ report.scan_type|default('verification', true) }}</span>
+                </div>
+            </div>
+            <div class="report-score">
+                <div class="score-value">{{ score_num }}/100</div>
+                <div class="score-label">
+                    {% if score_num >= 80 %}
+                        <span class="text-success">Низкий риск</span>
+                    {% elif score_num >= 60 %}
+                        <span class="text-warning">Средний риск</span>
+                    {% else %}
+                        <span class="text-danger">Высокий риск</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="report-details">
+            <div class="detail-row">
+                <span class="detail-label">Успешно:</span>
+                <span class="detail-value text-success">{{ report.summary.passed|default(0, true) }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Предупреждения:</span>
+                <span class="detail-value text-warning">{{ report.summary.warning|default(report.summary.warnings, true)|default(0, true) }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Ошибки:</span>
+                <span class="detail-value text-danger">{{ report.summary.failed|default(0, true) }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Всего проверок:</span>
+                <span class="detail-value">{{ report.summary.total_checks|default(report.summary.total, true)|default(0, true) }}</span>
+            </div>
+        </div>
+        
+        <div class="report-footer">
+            <small class="text-muted">ID: {{ report.id[:8] }}...</small>
+            <div class="report-actions">
+                <a href="/reports/{{ report.id }}" class="btn btn-sm btn-outline">
+                    <i class="fas fa-eye"></i> Просмотреть
+                </a>
+                <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('{{ report.id }}')">
+                    <i class="fas fa-trash"></i> Удалить
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-chart-bar fa-4x"></i>
+    <h3>Нет отчетов</h3>
+    <p>Запустите проверку безопасности, чтобы сгенерировать первый отчет</p>
+    <a href="/verification" class="btn btn-primary">
+        <i class="fas fa-play"></i> Запустить проверку
+    </a>
+</div>
+{% endif %}
+
+<script>
+function confirmDelete(reportId) {
+    if (confirm('Удалить этот отчет?')) {
+        fetch(`/api/reports/${reportId}/delete`, {
+            method: 'DELETE'
+        }).then(() => {
+            location.reload();
+        });
+    }
+}
+
+function confirmDeleteAll() {
+    if (confirm('Удалить все отчеты?')) {
+        fetch('/api/reports/delete-all', {
+            method: 'DELETE'
+        }).then(() => {
+            location.reload();
+        });
+    }
+}
+</script>
+
+<style>
+/* Стили для страницы отчетов */
+.reports-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.report-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+}
+
+.report-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.report-icon {
+    width: 50px;
+    height: 50px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    font-size: 1.5rem;
+}
+
+.report-info {
+    flex-grow: 1;
+}
+
+.report-info h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.25rem;
+}
+
+.report-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.report-meta .badge {
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.report-score {
+    text-align: right;
+}
+
+.score-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.score-label {
+    font-size: 0.875rem;
+}
+
+.report-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.report-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.report-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+</style>
+{% endblock %}

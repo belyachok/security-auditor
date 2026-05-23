@@ -1,0 +1,109 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Добавление нового компьютера</h2>
+    <p class="subtitle">Заполните информацию о компьютере для проверки</p>
+</div>
+
+<div class="form-container">
+    <form id="add-computer-form" class="computer-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Название компьютера *</label>
+                <input type="text" id="name" class="form-control" required placeholder="Например: Веб-сервер компании">
+            </div>
+            <div class="form-group">
+                <label class="form-label">IP адрес</label>
+                <input type="text" id="ip" class="form-control" placeholder="192.168.1.100">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Операционная система *</label>
+                <select id="os" class="form-control" required>
+                    <option value="">Выберите ОС</option>
+                    <option value="Windows 10">Windows 10</option>
+                    <option value="Windows 11">Windows 11</option>
+                    <option value="Windows Server 2022">Windows Server 2022</option>
+                    <option value="Ubuntu 22.04">Ubuntu 22.04</option>
+                    <option value="CentOS 7">CentOS 7</option>
+                    <option value="macOS 14">macOS 14</option>
+                    <option value="Другая">Другая</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Критичность</label>
+                <select id="criticality" class="form-control">
+                    <option value="low">Низкая</option>
+                    <option value="medium" selected>Средняя</option>
+                    <option value="high">Высокая</option>
+                    <option value="critical">Критическая</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Расположение</label>
+            <input type="text" id="location" class="form-control" placeholder="Например: Серверная 1, Кабинет 101">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Описание</label>
+            <textarea id="description" class="form-control" rows="3" placeholder="Описание компьютера, его назначение и особенности"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Теги</label>
+            <input type="text" id="tags" class="form-control" placeholder="server, web, critical (через запятую)">
+            <small class="form-hint">Используйте теги для группировки и фильтрации компьютеров</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Добавить компьютер
+            </button>
+            <a href="/computers" class="btn btn-outline">
+                <i class="fas fa-times"></i> Отмена
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('add-computer-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const computerData = {
+        name: document.getElementById('name').value,
+        ip: document.getElementById('ip').value,
+        os: document.getElementById('os').value,
+        location: document.getElementById('location').value,
+        description: document.getElementById('description').value,
+        tags: document.getElementById('tags').value.split(',').map(tag => tag.trim()).filter(tag => tag),
+        criticality: document.getElementById('criticality').value
+    };
+    
+    try {
+        const response = await fetch('/api/computer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(computerData)
+        });
+        
+        if (response.ok) {
+            alert('Компьютер успешно добавлен!');
+            window.location.href = '/computers';
+        } else {
+            const error = await response.json();
+            alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        alert('Ошибка при добавлении компьютера: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

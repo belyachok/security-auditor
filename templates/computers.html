@@ -1,0 +1,295 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Управление компьютерами</h2>
+    <p class="subtitle">Мониторинг и управление подключенными системами</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #2563eb;">
+            <i class="fas fa-desktop"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ computers|length }}</h3>
+            <p>Всего компьютеров</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #10b981;">
+            <i class="fas fa-wifi"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ computers|selectattr('status', 'equalto', 'online')|list|length }}</h3>
+            <p>Онлайн сейчас</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #f59e0b;">
+            <i class="fas fa-shield-alt"></i>
+        </div>
+        <div class="stat-content">
+            <h3>
+                {% set total = [] %}
+                {% for comp in computers if comp.last_score %}
+                    {% set _ = total.append(comp.last_score) %}
+                {% endfor %}
+                {% if total|length > 0 %}
+                    {{ (total|sum / total|length)|round|int }}
+                {% else %}
+                    0
+                {% endif %}/100
+            </h3>
+            <p>Средняя оценка</p>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #ef4444;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>
+                {% set vulnerabilities = 0 %}
+                {% for comp in computers if comp.last_score and comp.last_score < 70 %}
+                    {% set vulnerabilities = vulnerabilities + 1 %}
+                {% endfor %}
+                {{ vulnerabilities }}
+            </h3>
+            <p>Требуют внимания</p>
+        </div>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="/computers/new" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Добавить компьютер
+    </a>
+    <a href="/verification" class="btn btn-secondary">
+        <i class="fas fa-play"></i> Запустить проверку
+    </a>
+    <a href="/register-agent" class="btn btn-success">
+        <i class="fas fa-laptop"></i> Зарегестрировать локальный ПК
+    </a>
+</div>
+
+{% if computers %}
+<div class="computers-list">
+    {% for computer in computers %}
+    <div class="computer-card">
+        <div class="computer-header">
+            <div class="computer-icon">
+                <i class="fas fa-desktop"></i>
+            </div>
+            <div class="computer-info">
+                <h4>{{ computer.name }}</h4>
+                <div class="computer-status">
+                    <span class="status-badge {% if computer.status == 'online' %}online{% else %}offline{% endif %}">
+                        <i class="fas fa-circle"></i> {{ computer.status|default('offline')|title }}
+                    </span>
+                    <span class="type-badge">{{ computer.type|default('workstation')|title }}</span>
+                </div>
+            </div>
+            <div class="computer-actions">
+                </a>
+                <a href="/verification?computer_id={{ computer.id }}" class="btn btn-sm btn-success">
+                    <i class="fas fa-play"></i>
+                </a>
+                <button class="btn btn-sm btn-danger" onclick="deleteComputer('{{ computer.id }}', '{{ computer.name }}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="computer-details">
+            <div class="detail-row">
+                <span class="detail-label">IP адрес:</span>
+                <span class="detail-value">{{ computer.ip_address|default('Не указан') }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">ОС:</span>
+                <span class="detail-value">{{ computer.os|default('Неизвестно') }}</span>
+            </div>
+            {% if computer.last_score %}
+            <div class="detail-row">
+                <span class="detail-label">Оценка безопасности:</span>
+                <span class="detail-value score-{{ computer.last_score // 20 }}">
+                    {{ computer.last_score }}/100
+                </span>
+            </div>
+            {% endif %}
+            <div class="detail-row">
+                <span class="detail-label">Последняя активность:</span>
+                <span class="detail-value">{{ computer.last_seen|datetime if computer.last_seen else 'Никогда' }}</span>
+            </div>
+        </div>
+        
+        <div class="computer-footer">
+            <small class="text-muted">ID: {{ computer.id|truncate(8, True, '') }}</small>
+            <div class="quick-actions">
+                <a href="/verification?computer_id={{ computer.id }}" class="btn btn-sm btn-primary">Проверить</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-desktop fa-4x"></i>
+    <h3>Нет добавленных компьютеров</h3>
+    <p>Добавьте компьютеры для мониторинга их безопасности</p>
+    <a href="/computers/new" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Добавить первый компьютер
+    </a>
+</div>
+{% endif %}
+
+<script>
+async function deleteComputer(computerId, computerName) {
+    if (!confirm(`Удалить компьютер "${computerName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/computers/${computerId}`, {
+            method: 'DELETE',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            location.reload();
+        }
+    } catch (error) {
+        alert('Ошибка удаления: ' + error.message);
+    }
+}
+</script>
+
+<style>
+/* Стили для страницы компьютеров */
+.computers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.computer-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    padding: 1.5rem;
+}
+
+.computer-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.computer-icon {
+    width: 50px;
+    height: 50px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    color: #4b5563;
+    font-size: 1.5rem;
+}
+
+.computer-info {
+    flex-grow: 1;
+}
+
+.computer-info h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.25rem;
+}
+
+.computer-status {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.status-badge.online {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.offline {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.type-badge {
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.computer-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.computer-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.detail-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+}
+
+.detail-value {
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.score-0, .score-1, .score-2 { color: #dc2626; }
+.score-3 { color: #f59e0b; }
+.score-4, .score-5 { color: #10b981; }
+
+.computer-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,1143 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Основная информация -->
+<div class="stats-grid mb-4">
+    {% set score = report.score|default(0, true)|int %}
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #2563eb;">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ score }}/100</h3>
+            <p>Общая оценка</p>
+            <small class="text-muted">
+                {% if score >= 80 %}
+                    Низкий уровень риска
+                {% elif score >= 60 %}
+                    Средний уровень риска
+                {% else %}
+                    Высокий уровень риска
+                {% endif %}
+            </small>
+        </div>
+    </div>
+
+    <!-- Считаем статистику из security_checks -->
+    {% set passed_count = report.security_checks|selectattr('status', 'equalto', 'passed')|list|length if report.security_checks else 0 %}
+    {% set failed_count = report.security_checks|selectattr('status', 'equalto', 'failed')|list|length if report.security_checks else 0 %}
+    {% set warning_count = report.security_checks|selectattr('status', 'equalto', 'warning')|list|length if report.security_checks else 0 %}
+    {% set total_count = report.security_checks|length if report.security_checks else 0 %}
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #10b981;">
+            <i class="fas fa-check"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ passed_count }}</h3>
+            <p>Успешно</p>
+            <small class="text-muted">
+                {{ ((passed_count/total_count)*100)|round(1) if total_count > 0 else 0 }}% от общего числа
+            </small>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #f59e0b;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ warning_count }}</h3>
+            <p>Предупреждения</p>
+            <small class="text-muted">
+                {{ ((warning_count/total_count)*100)|round(1) if total_count > 0 else 0 }}% от общего числа
+            </small>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #ef4444;">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="stat-content">
+            <h3>{{ failed_count }}</h3>
+            <p>Ошибки</p>
+            <small class="text-muted">
+                {{ ((failed_count/total_count)*100)|round(1) if total_count > 0 else 0 }}% от общего числа
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Информация о проверке -->
+<div class="report-info mb-4">
+    <div class="info-row">
+        <span class="info-label">Компьютер:</span>
+        <span class="info-value">{{ report.computer_name|default(report.computer_id, true) }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Дата проверки:</span>
+        <span class="info-value">{{ report.timestamp|datetime if report.timestamp else report.formatted_date }}</span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Тип сканирования:</span>
+        <span class="info-value">
+            {% if report.scan_type == 'ispdn' %}
+                <span class="badge bg-primary">Анализ ИСПДн</span>
+            {% elif report.scan_type == 'full' %}
+                <span class="badge bg-info">Полное сканирование</span>
+            {% else %}
+                <span class="badge bg-secondary">Быстрая проверка</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="info-row">
+        <span class="info-label">Уровень риска:</span>
+        <span class="info-value">
+            {% if score >= 80 %}
+                <span class="badge bg-success">Низкий риск</span> - Система защищена
+            {% elif score >= 60 %}
+                <span class="badge bg-warning">Средний риск</span> - Требуются улучшения
+            {% else %}
+                <span class="badge bg-danger">Высокий риск</span> - Требуются срочные меры
+            {% endif %}
+        </span>
+    </div>
+</div>
+
+<!-- ПОЛНАЯ ИНФОРМАЦИЯ О СИСТЕМЕ -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0">
+            <i class="fas fa-desktop me-2"></i>
+            Полная информация о системе
+            <button class="btn btn-sm btn-outline-primary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#fullSystemInfo">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </h4>
+    </div>
+    <div class="collapse show" id="fullSystemInfo">
+        <div class="card-body">
+            <div class="accordion" id="systemAccordion">
+                
+                <!-- Блок 1: Аппаратное обеспечение -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#hardwareInfo">
+                            <i class="fas fa-microchip text-primary me-3"></i>
+                            <strong>Аппаратное обеспечение</strong>
+                        </button>
+                    </h2>
+                    <div id="hardwareInfo" class="accordion-collapse collapse show" data-bs-parent="#systemAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-microchip me-2"></i>Процессор</h6>
+                                    <div class="list-group list-group-flush mb-3">
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Модель:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'cpu', 'brand_raw', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Ядра:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'cpu', 'cores', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Логические ядра:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'cpu', 'logical_cores', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Частота:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'cpu', 'hz_actual', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Использование:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'cpu', 'usage_percent', default=0) }}%</code>
+                                        </div>
+                                    </div>
+                                    
+                                    <h6><i class="fas fa-memory me-2"></i>Память</h6>
+                                    <div class="list-group list-group-flush mb-3">
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Всего памяти:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'memory', 'total_gb', default=0) }} ГБ</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Использовано:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'memory', 'used_gb', default=0) }} ГБ</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Свободно:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'memory', 'free_gb', default=0) }} ГБ</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Процент использования:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'memory', 'percent', default=0) }}%</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-hdd me-2"></i>Хранилище</h6>
+                                    <div class="list-group list-group-flush mb-3">
+                                        {% set disks = safe_get(report, 'system_info', 'hardware', 'disks', default=[]) %}
+                                        {% if disks and disks|length > 0 %}
+                                            {% for disk in disks %}
+                                            <div class="list-group-item">
+                                                <div class="fw-bold">Диск {{ safe_get(disk, 'device', default='') }}</div>
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Точка монтирования:</small>
+                                                    <code>{{ safe_get(disk, 'mountpoint', default='') }}</code>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Файловая система:</small>
+                                                    <code>{{ safe_get(disk, 'fstype', default='') }}</code>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Всего:</small>
+                                                    <code>{{ safe_get(disk, 'total_gb', default=0) }} ГБ</code>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Использовано:</small>
+                                                    <code>{{ safe_get(disk, 'used_gb', default=0) }} ГБ</code>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Свободно:</small>
+                                                    <code>{{ safe_get(disk, 'free_gb', default=0) }} ГБ</code>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <small>Процент:</small>
+                                                    <code>{{ safe_get(disk, 'percent', default=0) }}%</code>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="list-group-item">
+                                                <span class="text-muted">Информация о дисках не собрана</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <h6><i class="fas fa-network-wired me-2"></i>Сеть</h6>
+                                    <div class="list-group list-group-flush">
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Имя хоста:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'network', 'hostname', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>IP адрес:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'network', 'ip_address', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>MAC адрес:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'hardware', 'network', 'mac_address', default='Неизвестно') }}</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Блок 2: Программное обеспечение -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#softwareInfo">
+                            <i class="fas fa-code text-success me-3"></i>
+                            <strong>Программное обеспечение</strong>
+                        </button>
+                    </h2>
+                    <div id="softwareInfo" class="accordion-collapse collapse" data-bs-parent="#systemAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-windows me-2"></i>Операционная система</h6>
+                                    <div class="list-group list-group-flush mb-3">
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Название ОС:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'software', 'os', 'name', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Система:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'software', 'os', 'system', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Версия:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'software', 'os', 'version', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Выпуск:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'software', 'os', 'release', default='Неизвестно') }}</code>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Архитектура:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'software', 'os', 'architecture', default='Неизвестно') }}</code>
+                                        </div>
+                                    </div>
+                                    
+                                    <h6><i class="fas fa-python me-2"></i>Python окружение</h6>
+                                    <div class="list-group list-group-flush mb-3">
+                                        <div class="list-group-item d-flex justify-content-between">
+                                            <span>Версия Python:</span>
+                                            <code>{{ safe_get(report, 'system_info', 'software', 'python', 'version', default='Неизвестно') }}</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-box me-2"></i>Установленное ПО</h6>
+                                    <div class="list-group list-group-flush mb-3">
+                                        {% set installed_programs = safe_get(report, 'system_info', 'software', 'installed_programs', default=[]) %}
+                                        {% if installed_programs and installed_programs|length > 0 %}
+                                            <div class="list-group-item">
+                                                <span class="fw-bold">Программы ({{ installed_programs|length }}):</span>
+                                                <div class="mt-2" style="max-height: 200px; overflow-y: auto;">
+                                                    {% for program in installed_programs %}
+                                                        {% set display_name = safe_get(program, 'DisplayName', default='') %}
+                                                        {% if display_name %}
+                                                            <div class="mb-1">
+                                                                <small>{{ display_name }} {{ safe_get(program, 'DisplayVersion', default='') }}</small>
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="list-group-item">
+                                                <span class="text-muted">Информация об установленных программах не собрана</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <h6><i class="fas fa-network-wired me-2"></i>Сетевые подключения</h6>
+                                    <div class="list-group list-group-flush">
+                                        {% set network_connections = safe_get(report, 'system_info', 'software', 'network_connections', default=[]) %}
+                                        {% if network_connections and network_connections|length > 0 %}
+                                            <div class="list-group-item">
+                                                <span class="fw-bold">Подключения ({{ network_connections|length }}):</span>
+                                                <div class="mt-2" style="max-height: 200px; overflow-y: auto;">
+                                                    {% for conn in network_connections %}
+                                                        <div class="mb-1">
+                                                            <small>{{ safe_get(conn, 'local_address', default='') }} → {{ safe_get(conn, 'remote_address', default='') }}</small>
+                                                            <br>
+                                                            <small class="text-muted">{{ safe_get(conn, 'status', default='') }} | PID: {{ safe_get(conn, 'pid', default='') }}</small>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="list-group-item">
+                                                <span class="text-muted">Информация о сетевых подключениях не собрана</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Результаты проверок с группировкой -->
+<div class="section-header mb-3">
+    <h3>
+        <i class="fas fa-clipboard-check me-2"></i>
+        Результаты проверок
+        <span class="badge bg-secondary">{{ total_count }}</span>
+    </h3>
+</div>
+
+
+{% if report.security_checks %}
+<!-- Фильтры по категориям -->
+<div class="mb-4">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary" onclick="filterChecks('all')">
+            Все ({{ total_count }})
+        </button>
+        <button type="button" class="btn btn-outline-success" onclick="filterChecks('passed')">
+            Успешно ({{ passed_count }})
+        </button>
+        <button type="button" class="btn btn-outline-warning" onclick="filterChecks('warning')">
+            Предупреждения ({{ warning_count }})
+        </button>
+        <button type="button" class="btn btn-outline-danger" onclick="filterChecks('failed')">
+            Ошибки ({{ failed_count }})
+        </button>
+    </div>
+</div>
+
+<!-- Группировка по категориям -->
+{% set categories = {} %}
+{% for check in report.security_checks %}
+    {% set category = check.category|default('Без категории') %}
+    {% if category not in categories %}
+        {% set _ = categories.update({category: []}) %}
+    {% endif %}
+    {% set _ = categories[category].append(check) %}
+{% endfor %}
+
+{% for category_name, category_checks in categories.items() %}
+{% set category_index = loop.index %}
+<div class="card mb-4 check-category">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-folder me-2"></i>
+            {{ category_name }}
+            <span class="badge bg-secondary float-end">{{ category_checks|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="accordion" id="accordion{{ category_index }}">
+            {% for check in category_checks %}
+            <div class="accordion-item check-item" data-status="{{ check.status }}">
+                <h2 class="accordion-header">
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#collapse{{ category_index }}_{{ loop.index }}">
+                        <div class="check-header">
+                            <div class="check-status-icon me-3">
+                                {% if check.status == 'passed' %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% elif check.status == 'failed' %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% else %}
+                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                {% endif %}
+                            </div>
+                            <div class="check-title">
+                                <h6 class="mb-1">{{ check.name }}</h6>
+                                <small class="text-muted">{{ check.description[:100] }}{% if check.description|length > 100 %}...{% endif %}</small>
+                            </div>
+                            <div class="check-result ms-auto">
+                                {% if check.status == 'passed' %}
+                                    <span class="badge bg-success">Успешно</span>
+                                {% elif check.status == 'failed' %}
+                                    <span class="badge bg-danger">Ошибка</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Предупреждение</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+                <div id="collapse{{ category_index }}_{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#accordion{{ category_index }}">
+                    <div class="accordion-body">
+                        <div class="check-details">
+                            <h6>Детальная информация:</h6>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <p><strong>Описание:</strong> {{ check.description }}</p>
+                                    
+                                    {% if check.details %}
+                                    <div class="mt-3">
+                                        <strong>Технические детали:</strong>
+                                        <div class="bg-light p-3 rounded mt-2">
+                                            {% if check.details is string %}
+                                                <pre class="mb-0">{{ check.details }}</pre>
+                                            {% else %}
+                                                <pre class="mb-0">{{ check.details|tojson }}</pre>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Почему успешно/не успешно -->
+                                    <div class="mt-3">
+                                        <strong>Анализ результата:</strong>
+                                        <div class="analysis-result p-3 rounded mt-2 
+                                            {% if check.status == 'passed' %}bg-success bg-opacity-10{% elif check.status == 'failed' %}bg-danger bg-opacity-10{% else %}bg-warning bg-opacity-10{% endif %}">
+                                            {% if check.status == 'passed' %}
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                                <strong>Почему успешно:</strong>
+                                                <ul class="mt-2 mb-0">
+                                                    {% if check.name == 'Загрузка процессора' %}
+                                                        <li>Загрузка CPU ниже 70% - оптимальное значение</li>
+                                                        <li>Система не перегружена, ресурсы доступны</li>
+                                                    {% elif check.name == 'Использование памяти' %}
+                                                        <li>Использование памяти в пределах нормы</li>
+                                                        <li>Достаточно свободной памяти для работы приложений</li>
+                                                    {% elif check.name == 'Количество дисков' %}
+                                                        <li>Обнаружены все физические диски</li>
+                                                        <li>Хранилище доступно для операций чтения/записи</li>
+                                                    {% elif check.name == 'Операционная система' %}
+                                                        <li>Операционная система корректно определена</li>
+                                                        <li>Версия системы поддерживается</li>
+                                                    {% else %}
+                                                        <li>Проверка выполнена без ошибок</li>
+                                                        <li>Все параметры соответствуют требованиям</li>
+                                                    {% endif %}
+                                                </ul>
+                                            {% elif check.status == 'failed' %}
+                                                <i class="fas fa-times-circle text-danger me-2"></i>
+                                                <strong>Причины ошибки:</strong>
+                                                <ul class="mt-2 mb-0">
+                                                    <li>Критическое значение превышает допустимые пределы</li>
+                                                    <li>Нарушены требования безопасности</li>
+                                                    <li>Системный компонент недоступен</li>
+                                                </ul>
+                                            {% else %}
+                                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                                <strong>Внимание:</strong>
+                                                <ul class="mt-2 mb-0">
+                                                    <li>Параметр близок к критическому значению</li>
+                                                    <li>Рекомендуется обратить внимание на настройки</li>
+                                                    <li>Возможны проблемы при увеличении нагрузки</li>
+                                                </ul>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <!-- Влияние на безопасность -->
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Влияние на безопасность</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            {% if check.status == 'passed' %}
+                                                <div class="alert alert-success py-2 mb-2">
+                                                    <small><strong>Низкий риск:</strong> Безопасность не нарушена</small>
+                                                </div>
+                                            {% elif check.status == 'failed' %}
+                                                <div class="alert alert-danger py-2 mb-2">
+                                                    <small><strong>Высокий риск:</strong> Требуются срочные меры</small>
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-warning py-2 mb-2">
+                                                    <small><strong>Средний риск:</strong> Требуется мониторинг</small>
+                                                </div>
+                                            {% endif %}
+                                            
+                                            <small>
+                                                <strong>Область воздействия:</strong><br>
+                                                {% if 'CPU' in check.name or 'процессор' in check.name %}
+                                                    Производительность системы
+                                                {% elif 'память' in check.name or 'memory' in check.name %}
+                                                    Стабильность работы
+                                                {% elif 'диск' in check.name or 'disk' in check.name %}
+                                                    Хранение данных
+                                                {% elif 'сеть' in check.name or 'network' in check.name %}
+                                                    Сетевая безопасность
+                                                {% else %}
+                                                    Общая безопасность
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if check.recommendation %}
+                                    <div class="card mt-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Рекомендация</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="mb-0"><small>{{ check.recommendation }}</small></p>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- Ссылка на требования -->
+                                    <div class="card mt-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="fas fa-book me-2"></i>Нормативные ссылки</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <small>
+                                                {% if 'пароль' in check.name or 'password' in check.name %}
+                                                    ФСТЭК Приказ 21, п. 14<br>
+                                                    ГОСТ Р ИСО/МЭК 27001, A.9.2
+                                                {% elif 'обновление' in check.name or 'update' in check.name %}
+                                                    ФСТЭК Приказ 17, п. 6<br>
+                                                    ФЗ-152, ст. 19
+                                                {% else %}
+                                                    ФСТЭК Приказ 17<br>
+                                                    ФЗ-152 "О персональных данных"
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-clipboard-list fa-3x"></i>
+    <h4>Нет данных о проверках</h4>
+    <p>Информация о проведенных проверках отсутствует</p>
+</div>
+{% endif %}
+
+<!-- Рекомендации по ИСПДн -->
+{% if report.ispdn_recommendations %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h4 class="mb-0">
+            <i class="fas fa-tasks me-2"></i>
+            Рекомендации по соответствию ИСПДн
+            <button class="btn btn-sm btn-outline-primary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#ispdnRecommendations">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </h4>
+    </div>
+    <div class="collapse show" id="ispdnRecommendations">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Требование</th>
+                            <th>Проблема</th>
+                            <th>Рекомендация</th>
+                            <th>Приоритет</th>
+                            <th>Стандарт</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in report.ispdn_recommendations %}
+                        <tr>
+                            <td>
+                                <strong>{{ rec.requirement_name }}</strong><br>
+                                <small class="text-muted">{{ rec.requirement_id }}</small>
+                            </td>
+                            <td>{{ rec.issue|default('Не указана') }}</td>
+                            <td>{{ rec.recommendation|default('Не указана') }}</td>
+                            <td>
+                                {% if rec.priority == 'Высокий' %}
+                                    <span class="badge bg-danger">Высокий</span>
+                                {% elif rec.priority == 'Средний' %}
+                                    <span class="badge bg-warning">Средний</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Низкий</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ rec.standard|default('ФСТЭК') }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Техническое заключение -->
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+            <i class="fas fa-file-contract me-2"></i>
+            Техническое заключение
+        </h4>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-12">
+                <!-- Прогресс бар оценки -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Общая оценка безопасности</span>
+                        <span class="fw-bold">{{ score }}/100</span>
+                    </div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar" 
+                            role="progressbar" 
+                            data-score="{{ score }}"
+                            aria-valuenow="{{ score }}" 
+                            aria-valuemin="0" 
+                            aria-valuemax="100">
+                            <strong>{{ score }}%</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert 
+                    {% if report.score|default(0, true)|int >= 80 %}alert-success
+                    {% elif report.score|default(0, true)|int >= 60 %}alert-warning
+                    {% else %}alert-danger{% endif %}">
+                    <h5 class="alert-heading">
+                        {% if report.score|default(0, true)|int >= 80 %}
+                            <i class="fas fa-thumbs-up me-2"></i>Система защищена
+                        {% elif report.score|default(0, true)|int >= 60 %}
+                            <i class="fas fa-exclamation-circle me-2"></i>Требуются улучшения
+                        {% else %}
+                            <i class="fas fa-exclamation-triangle me-2"></i>Требуются срочные меры
+                        {% endif %}
+                    </h5>
+                    <p class="mb-0">
+                        {% if report.conclusion and report.conclusion.conclusion %}
+                            {{ report.conclusion.conclusion }}
+                        {% else %}
+                            {% if report.score|default(0, true)|int >= 80 %}
+                                Система соответствует основным требованиям безопасности ИСПДн.
+                            {% elif report.score|default(0, true)|int >= 60 %}
+                                Система требует доработки для полного соответствия требованиям ИСПДн.
+                            {% else %}
+                                Система не соответствует требованиям безопасности ИСПДн.
+                            {% endif %}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h5>Ключевые показатели:</h5>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Соответствие требованиям:</span>
+                        <strong>{{ ((passed_count/total_count)*100)|round(1) if total_count > 0 else 0 }}%</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Критические нарушения:</span>
+                        <strong class="text-danger">{{ failed_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Рекомендации:</span>
+                        <strong>{{ report.ispdn_recommendations|length if report.ispdn_recommendations else 0 }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Дата следующей проверки:</span>
+                        <strong>{% if report.score|default(0, true)|int >= 80 %}Через 6 месяцев{% elif report.score|default(0, true)|int >= 60 %}Через 3 месяца{% else %}Немедленно{% endif %}</strong>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="col-md-6">
+                <h5>Рекомендации по улучшению:</h5>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        <span>Выполненные проверки: <strong>{{ total_count }}</strong></span>
+                    </div>
+                    <div class="list-group-item">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        <span>Требуют внимания: <strong>{{ warning_count + failed_count }}</strong></span>
+                    </div>
+                    <div class="list-group-item">
+                        <i class="fas fa-tools text-info me-2"></i>
+                        <span>Необходимые улучшения: <strong>{{ report.ispdn_recommendations|length if report.ispdn_recommendations else 0 }}</strong></span>
+                    </div>
+                    <div class="list-group-item">
+                        <i class="fas fa-clock text-secondary me-2"></i>
+                        <span>Срок исправления: 
+                            <strong>
+                                {% if report.score|default(0, true)|int >= 80 %}
+                                    30 дней
+                                {% elif report.score|default(0, true)|int >= 60 %}
+                                    15 дней
+                                {% else %}
+                                    7 дней
+                                {% endif %}
+                            </strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Действия -->
+<div class="action-buttons mt-4" data-report-id="{{ report.id }}" data-computer-id="{{ report.computer_id }}">
+    <button class="btn btn-primary" onclick="rescanComputer()">
+        <i class="fas fa-redo me-2"></i> Повторить проверку
+    </button>
+</div>
+
+<script>
+// Функция для показа всех программ
+function showAllPrograms() {
+    alert('Функция просмотра всех программ пока не реализована');
+}
+
+// Функция для экспорта информации о системе
+function exportSystemInfo() {
+    alert('Экспорт информации о системе будет доступен в следующей версии');
+}
+
+// Функция для копирования информации о системе
+function copySystemInfo(section) {
+    alert('Копирование информации раздела: ' + section);
+}
+
+// Инициализация аккордеона при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    // Автоматически открываем первую секцию аппаратного обеспечения
+    const hardwareAccordion = document.querySelector('#hardwareInfo');
+    if (hardwareAccordion) {
+        hardwareAccordion.classList.add('show');
+    }
+    
+    // Инициализация прогресс-бара оценки
+    const progressBars = document.querySelectorAll('[data-score]');
+    progressBars.forEach(bar => {
+        const score = parseFloat(bar.getAttribute('data-score')) || 0;
+        bar.style.width = score + '%';
+        
+        // Устанавливаем цвет в зависимости от оценки
+        if (score >= 80) {
+            bar.classList.add('bg-success');
+        } else if (score >= 60) {
+            bar.classList.add('bg-warning');
+        } else {
+            bar.classList.add('bg-danger');
+        }
+    });
+});
+
+// Фильтрация проверок
+function filterChecks(status) {
+    const checkItems = document.querySelectorAll('.check-item');
+    checkItems.forEach(item => {
+        const itemStatus = item.getAttribute('data-status');
+        if (status === 'all' || itemStatus === status) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // Обновляем активную кнопку
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+}
+
+// Остальные функции...
+function printReport() {
+    window.print();
+}
+
+function rescanComputer() {
+    const computerId = document.querySelector('[data-computer-id]')?.getAttribute('data-computer-id');
+    if (computerId) {
+        if (confirm('Запустить повторную проверку этого компьютера?')) {
+            fetch('/api/verify/' + computerId, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Проверка запущена. Через несколько секунд появится новый отчет.');
+                        setTimeout(() => {
+                            window.location.href = '/reports';
+                        }, 2000);
+                    } else {
+                        alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+                    }
+                })
+                .catch(error => {
+                    alert('Ошибка подключения: ' + error);
+                });
+        }
+    } else {
+        alert('ID компьютера не найден');
+    }
+}
+
+function shareReport() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Отчет о безопасности ИСПДн',
+            text: 'Отчет о проверке системы на соответствие требованиям ИСПДн',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href)
+            .then(() => showNotification('Ссылка скопирована в буфер обмена', 'success'))
+            .catch(() => alert('Не удалось скопировать ссылку'));
+    }
+}
+
+function downloadReport() {
+    const reportId = document.querySelector('[data-report-id]')?.getAttribute('data-report-id');
+    if (reportId) {
+        window.open('/api/reports/' + reportId + '/download?format=pdf', '_blank');
+    } else {
+        alert('ID отчета не найден');
+    }
+}
+
+function showNotification(message, type) {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    const notification = document.createElement('div');
+    notification.className = 'alert ' + alertClass + ' alert-dismissible fade show position-fixed';
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    notification.innerHTML = message + '<button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>';
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+
+<style>
+/* Дополнительные стили для улучшенного отчета */
+.report-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    border: none;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    color: white;
+}
+
+.info-row {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    width: 200px;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+.info-value {
+    color: white;
+    font-weight: 600;
+}
+
+.check-category {
+    border-left: 4px solid #2563eb;
+}
+
+.check-category .card-header {
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.check-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.check-status-icon {
+    flex-shrink: 0;
+    font-size: 1.25rem;
+}
+
+.check-title {
+    flex-grow: 1;
+    margin: 0 1rem;
+}
+
+.check-title h6 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.check-result {
+    flex-shrink: 0;
+}
+
+.accordion-button {
+    padding: 1rem 1.25rem;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #f8fafc;
+    color: #1e293b;
+    box-shadow: none;
+}
+
+.accordion-button:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
+}
+
+.analysis-result {
+    border-left: 4px solid;
+}
+
+.analysis-result ul {
+    padding-left: 1.5rem;
+    margin-bottom: 0;
+}
+
+.analysis-result li {
+    margin-bottom: 0.25rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    padding: 2rem 0;
+    border-top: 1px solid #e5e7eb;
+    justify-content: center;
+}
+
+.action-buttons .btn {
+    min-width: 180px;
+    padding: 0.75rem 1.5rem;
+}
+
+.accordion-button {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e7f1ff;
+    color: #0c63e4;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.125);
+}
+
+.accordion-item {
+    border: 1px solid rgba(0,0,0,.125);
+    margin-bottom: 0.5rem;
+}
+
+.accordion-body {
+    background-color: #fff;
+}
+
+.list-group-item {
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 0.75rem 0.5rem;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.code-block {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.section-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    margin-right: 1rem;
+}
+
+.programs-list {
+    column-gap: 2rem;
+}
+
+/* Адаптивность */
+@media (max-width: 992px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .programs-list {
+        column-count: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .check-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .check-title {
+        margin: 0.5rem 0;
+    }
+    
+    .check-result {
+        margin-top: 0.5rem;
+    }
+}
+
+/* Кнопки действий в заголовках аккордеона */
+.accordion-button .btn {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.accordion-button:hover .btn {
+    opacity: 1;
+}
+
+.accordion-button:not(.collapsed) .btn {
+    opacity: 1;
+}
+
+/* Анимации */
+.accordion-collapse {
+    transition: all 0.3s ease;
+}
+
+.check-item {
+    transition: all 0.3s ease;
+}
+
+/* Стили для печати */
+@media print {
+    .action-buttons,
+    .btn-group,
+    .accordion-button:after {
+        display: none !important;
+    }
+    
+    .accordion-collapse {
+        display: block !important;
+    }
+    
+    .accordion-item {
+        break-inside: avoid;
+    }
+    
+    .card {
+        border: 1px solid #ddd;
+    }
+}
+</style>
+{% endblock %}

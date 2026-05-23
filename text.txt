@@ -1,0 +1,2482 @@
+"""
+🛡️ РАСПРЕДЕЛЕННАЯ СИСТЕМА ВЕРИФИКАЦИИ БЕЗОПАСНОСТИ ИСПДн
+Версия 3.1 - С исправленными шаблонами и улучшенным интерфейсом
+"""
+
+# ==================== ИМПОРТЫ ====================
+import json
+import uuid
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any
+import os
+import platform
+import psutil
+import socket
+import subprocess
+import hashlib
+import asyncio
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request, Form, Depends, BackgroundTasks, status
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from pydantic import BaseModel, Field
+import plotly.graph_objects as go
+import plotly.express as px
+import pandas as pd
+
+# ==================== МОДЕЛИ PYDANTIC ====================
+class ComputerCreate(BaseModel):
+    """Модель для создания компьютера"""
+    name: str = Field(..., min_length=1, max_length=100)
+    ip: Optional[str] = None
+    os: str = "Windows 10"
+    location: str = ""
+    description: str = ""
+    tags: List[str] = []
+    criticality: str = "medium"  # low, medium, high, critical
+
+class VerificationRequest(BaseModel):
+    """Модель для запроса верификации"""
+    computer_ids: List[str]
+    check_types: List[str] = ["requirements", "vulnerabilities", "configuration"]
+    depth: str = "standard"  # quick, standard, deep
+
+class ReportFilter(BaseModel):
+    """Модель для фильтрации отчетов"""
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    min_score: int = 0
+    max_score: int = 100
+    os_filter: List[str] = []
+    status_filter: List[str] = []
+
+# ==================== КОНФИГУРАЦИЯ ====================
+class Config:
+    SYSTEM_NAME = "🔐 Security Auditor Pro"
+    VERSION = "3.1.0"
+    PORT = 8000
+    HOST = "0.0.0.0"
+    
+    # Цветовая схема
+    THEME = {
+        "primary": "#2563eb",
+        "secondary": "#7c3aed",
+        "success": "#10b981",
+        "warning": "#f59e0b",
+        "danger": "#ef4444",
+        "dark": "#1f2937",
+        "light": "#f9fafb"
+    }
+    
+    # Пути
+    BASE_DIR = Path(__file__).parent
+    DATA_DIR = BASE_DIR / "data"
+    REPORTS_DIR = BASE_DIR / "reports"
+    TEMPLATES_DIR = BASE_DIR / "templates"
+    STATIC_DIR = BASE_DIR / "static"
+    LOGS_DIR = BASE_DIR / "logs"
+    
+    # Требования безопасности
+    REQUIREMENTS = {
+        "fstek": {
+            "name": "ФСТЭК России",
+            "checks": {
+                "auth": "Аутентификация и пароли",
+                "audit": "Аудит и журналирование",
+                "network": "Сетевая безопасность",
+                "software": "Защита ПО",
+                "access": "Контроль доступа"
+            }
+        },
+        "gost": {
+            "name": "ГОСТ Р 57580",
+            "checks": {
+                "iso_27001": "Соответствие ISO 27001",
+                "risk_management": "Управление рисками",
+                "incident_response": "Реагирование на инциденты"
+            }
+        },
+        "cis": {
+            "name": "CIS Benchmarks",
+            "checks": {
+                "windows": "Безопасность Windows",
+                "linux": "Безопасность Linux",
+                "network": "Безопасность сети"
+            }
+        }
+    }
+
+# ==================== ИНИЦИАЛИЗАЦИЯ ====================
+def init_directories():
+    """Создание необходимых директорий"""
+    directories = [
+        Config.DATA_DIR,
+        Config.REPORTS_DIR,
+        Config.STATIC_DIR / "css",
+        Config.STATIC_DIR / "js",
+        Config.STATIC_DIR / "images",
+        Config.TEMPLATES_DIR,
+        Config.DATA_DIR / "collected",
+        Config.DATA_DIR / "exports",
+        Config.LOGS_DIR
+    ]
+    
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True)
+    
+    # Создаем CSS файлы для стилей
+    create_styles()
+    # Создаем HTML шаблоны
+    create_templates()
+    # Создаем JavaScript файлы
+    create_javascript()
+
+# ==================== CSS СТИЛИ ====================
+def create_styles():
+    """Создание CSS файлов"""
+    css_content = """
+    :root {
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --secondary: #7c3aed;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --dark: #1f2937;
+        --light: #f9fafb;
+        --gray: #6b7280;
+        --gray-light: #e5e7eb;
+        --border-radius: 12px;
+        --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        color: var(--dark);
+    }
+    
+    .app-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        margin: 20px;
+        min-height: calc(100vh - 40px);
+        overflow: hidden;
+    }
+    
+    /* Навигация */
+    .navbar {
+        background: white;
+        border-bottom: 1px solid var(--gray-light);
+        padding: 1rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .navbar-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--dark);
+    }
+    
+    .navbar-brand h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .nav-links {
+        display: flex;
+        gap: 2rem;
+        list-style: none;
+    }
+    
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        text-decoration: none;
+        color: var(--gray);
+        border-radius: var(--border-radius);
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+    
+    .nav-link:hover, .nav-link.active {
+        background: var(--light);
+        color: var(--primary);
+    }
+    
+    /* Карточки */
+    .card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-light);
+        transition: transform 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+    
+    .card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    /* Кнопки */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: var(--border-radius);
+        border: none;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        font-size: 14px;
+    }
+    
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+    
+    .btn-success {
+        background: var(--success);
+        color: white;
+    }
+    
+    .btn-warning {
+        background: var(--warning);
+        color: white;
+    }
+    
+    .btn-danger {
+        background: var(--danger);
+        color: white;
+    }
+    
+    .btn-outline {
+        background: transparent;
+        border: 2px solid var(--primary);
+        color: var(--primary);
+    }
+    
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    /* Таблицы */
+    .table-container {
+        overflow-x: auto;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--gray-light);
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .table th {
+        background: var(--light);
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--dark);
+        border-bottom: 2px solid var(--gray-light);
+    }
+    
+    .table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+    
+    .table tr:hover {
+        background: var(--light);
+    }
+    
+    /* Статус баджи */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    
+    /* Прогресс бары */
+    .progress-bar {
+        height: 8px;
+        background: var(--gray-light);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+    
+    .progress-success { background: var(--success); }
+    .progress-warning { background: var(--warning); }
+    .progress-danger { background: var(--danger); }
+    .progress-info { background: var(--primary); }
+    
+    /* Модальные окна */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    /* Формы */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--dark);
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--gray-light);
+        border-radius: var(--border-radius);
+        font-size: 14px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    
+    /* Утилиты */
+    .grid {
+        display: grid;
+        gap: 1.5rem;
+    }
+    
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    
+    .flex {
+        display: flex;
+    }
+    
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
+    
+    .p-4 { padding: 1rem; }
+    .p-6 { padding: 1.5rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-4 { margin-top: 1rem; }
+    .mt-6 { margin-top: 1.5rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    
+    .text-center { text-align: center; }
+    .text-sm { font-size: 0.875rem; }
+    .text-lg { font-size: 1.125rem; }
+    .text-xl { font-size: 1.25rem; }
+    .text-2xl { font-size: 1.5rem; }
+    
+    .font-bold { font-weight: 700; }
+    .font-semibold { font-weight: 600; }
+    
+    .hidden { display: none; }
+    
+    .text-gray { color: var(--gray); }
+    .text-success { color: var(--success); }
+    .text-warning { color: var(--warning); }
+    .text-danger { color: var(--danger); }
+    .text-primary { color: var(--primary); }
+    
+    /* Анимации */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    /* Адаптивность */
+    @media (max-width: 1024px) {
+        .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .navbar { flex-direction: column; gap: 1rem; }
+        .nav-links { flex-wrap: wrap; justify-content: center; }
+    }
+    
+    @media (max-width: 768px) {
+        .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+        .app-container { margin: 10px; }
+    }
+    """
+    
+    css_file = Config.STATIC_DIR / "css" / "main.css"
+    css_file.write_text(css_content, encoding='utf-8')
+
+# ==================== JAVASCRIPT ====================
+def create_javascript():
+    """Создание JavaScript файлов"""
+    js_content = """
+    // Основной JavaScript файл
+    
+    // Утилиты
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#2563eb'};
+            color: white;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+    
+    // Модальные окна
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.add('active');
+    }
+    
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.remove('active');
+    }
+    
+    // Закрытие модального окна по клику вне его
+    document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.classList.remove('active');
+        }
+    });
+    
+    // Поиск и фильтрация
+    function filterTable(tableId, searchId) {
+        const search = document.getElementById(searchId).value.toLowerCase();
+        const table = document.getElementById(tableId);
+        const rows = table.getElementsByTagName('tr');
+        
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(search) ? '' : 'none';
+        }
+    }
+    
+    // Экспорт данных
+    function exportToCSV(tableId, filename) {
+        const table = document.getElementById(tableId);
+        const rows = table.querySelectorAll('tr');
+        const csv = [];
+        
+        rows.forEach(row => {
+            const cols = row.querySelectorAll('td, th');
+            const rowData = Array.from(cols).map(col => {
+                // Убираем HTML и лишние пробелы
+                let text = col.textContent.trim();
+                text = text.replace(/\\n/g, ' ').replace(/\\s+/g, ' ');
+                // Экранируем кавычки для CSV
+                if (text.includes(',') || text.includes('"') || text.includes('\\n')) {
+                    text = '"' + text.replace(/"/g, '""') + '"';
+                }
+                return text;
+            });
+            csv.push(rowData.join(','));
+        });
+        
+        const csvString = csv.join('\\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+    
+    // Анимации
+    document.addEventListener('DOMContentLoaded', function() {
+        // Анимация карточек при загрузке
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+            card.classList.add('fade-in');
+        });
+        
+        // Обработка подтверждения удаления
+        const deleteButtons = document.querySelectorAll('[data-confirm-delete]');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                if (!confirm('Вы уверены, что хотите удалить этот элемент?')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    });
+    
+    // API запросы
+    async function apiRequest(endpoint, method = 'GET', data = null) {
+        const options = {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+        
+        if (data && (method === 'POST' || method === 'PUT')) {
+            options.body = JSON.stringify(data);
+        }
+        
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.detail || 'Произошла ошибка');
+            }
+            
+            return result;
+        } catch (error) {
+            showToast(error.message, 'error');
+            throw error;
+        }
+    }
+    """
+    
+    js_file = Config.STATIC_DIR / "js" / "main.js"
+    js_file.write_text(js_content, encoding='utf-8')
+
+# ==================== HTML ШАБЛОНЫ ====================
+def create_templates():
+    """Создание HTML шаблонов"""
+    
+    # Базовый шаблон
+    base_html = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Security Auditor</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Навигация -->
+        <nav class="navbar">
+            <a href="/" class="navbar-brand">
+                <i class="fas fa-shield-alt text-2xl" style="color: #2563eb;"></i>
+                <h1>Security Auditor Pro</h1>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-home"></i>Главная
+                </a></li>
+                <li><a href="/computers" class="nav-link {% if active_page == 'computers' %}active{% endif %}">
+                    <i class="fas fa-desktop"></i>Компьютеры
+                </a></li>
+                <li><a href="/verification" class="nav-link {% if active_page == 'verification' %}active{% endif %}">
+                    <i class="fas fa-search"></i>Проверка
+                </a></li>
+                <li><a href="/reports" class="nav-link {% if active_page == 'reports' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>Отчеты
+                </a></li>
+                <li><a href="/settings" class="nav-link {% if active_page == 'settings' %}active{% endif %}">
+                    <i class="fas fa-cog"></i>Настройки
+                </a></li>
+            </ul>
+            <div class="flex items-center gap-4">
+                <div class="text-sm">
+                    <span class="font-semibold">{{ username }}</span>
+                    <div class="text-xs text-gray">{{ current_time }}</div>
+                </div>
+            </div>
+        </nav>
+        
+        <!-- Контент -->
+        <main class="p-6">
+            {% block content %}{% endblock %}
+        </main>
+        
+        <!-- Футер -->
+        <footer class="p-4 border-t border-gray-light text-center text-sm text-gray">
+            <p>© 2024 Security Auditor Pro v{{ version }} | Система верификации безопасности ИСПДн</p>
+        </footer>
+    </div>
+    
+    <script src="/static/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>"""
+    
+    # Дашборд
+    dashboard_html = """{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold mb-2">Добро пожаловать, {{ username }}!</h1>
+    <p class="text-gray">Обзор системы безопасности вашей инфраструктуры</p>
+</div>
+
+<!-- Статистика -->
+<div class="grid grid-4 gap-4 mb-6">
+    <div class="card">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-sm text-gray">Всего компьютеров</div>
+                <div class="text-2xl font-bold">{{ stats.total_computers }}</div>
+            </div>
+            <i class="fas fa-desktop text-2xl text-primary"></i>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-sm text-gray">Проверено</div>
+                <div class="text-2xl font-bold">{{ stats.verified }}</div>
+            </div>
+            <i class="fas fa-check-circle text-2xl text-success"></i>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-sm text-gray">Средняя оценка</div>
+                <div class="text-2xl font-bold">{{ stats.avg_score }}/100</div>
+            </div>
+            <i class="fas fa-chart-line text-2xl text-warning"></i>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-sm text-gray">Уязвимости</div>
+                <div class="text-2xl font-bold">{{ stats.total_vulnerabilities }}</div>
+            </div>
+            <i class="fas fa-exclamation-triangle text-2xl text-danger"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Графики -->
+<div class="grid grid-2 gap-6 mb-6">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Распределение по ОС</h2>
+        </div>
+        <div id="os-chart" style="height: 300px;"></div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Оценки безопасности</h2>
+        </div>
+        <div id="score-chart" style="height: 300px;"></div>
+    </div>
+</div>
+
+<!-- Последние проверки -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Последние проверки</h2>
+        <a href="/reports" class="btn btn-outline">Все отчеты</a>
+    </div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Компьютер</th>
+                    <th>Дата проверки</th>
+                    <th>Оценка</th>
+                    <th>Статус</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in recent_reports %}
+                <tr>
+                    <td>
+                        <div class="font-semibold">{{ report.computer.name }}</div>
+                        <div class="text-sm text-gray">{{ report.computer.ip }}</div>
+                    </td>
+                    <td>{{ report.end_time }}</td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div class="w-24">
+                                <div class="progress-bar">
+                                    <div class="progress-fill 
+                                        {% if report.security_score >= 70 %}progress-success
+                                        {% elif report.security_score >= 40 %}progress-warning
+                                        {% else %}progress-danger{% endif %}" 
+                                         style="width: {{ report.security_score }}%"></div>
+                                </div>
+                            </div>
+                            <span>{{ report.security_score }}/100</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if report.security_score >= 70 %}
+                        <span class="badge badge-success">Безопасно</span>
+                        {% elif report.security_score >= 40 %}
+                        <span class="badge badge-warning">Требует внимания</span>
+                        {% else %}
+                        <span class="badge badge-danger">Критично</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/reports/{{ report.id }}" class="btn btn-primary btn-sm">Отчет</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Быстрые действия -->
+<div class="mt-6 flex gap-4">
+    <a href="/verification" class="btn btn-primary">
+        <i class="fas fa-play"></i>Запустить проверку
+    </a>
+    <a href="/computers/new" class="btn btn-outline">
+        <i class="fas fa-plus"></i>Добавить компьютер
+    </a>
+    <a href="/reports/export" class="btn btn-outline">
+        <i class="fas fa-download"></i>Экспортировать отчеты
+    </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // График распределения по ОС
+    var osData = [{
+        values: {{ os_values|tojson }},
+        labels: {{ os_labels|tojson }},
+        type: 'pie',
+        hole: .4,
+        marker: {
+            colors: ['#2563eb', '#7c3aed', '#10b981', '#f59e0b', '#ef4444']
+        }
+    }];
+    
+    var osLayout = {
+        showlegend: true,
+        legend: {
+            orientation: 'h'
+        }
+    };
+    
+    Plotly.newPlot('os-chart', osData, osLayout);
+    
+    // График оценок
+    var scoreData = [{
+        x: {{ score_labels|tojson }},
+        y: {{ score_values|tojson }},
+        type: 'bar',
+        marker: {
+            color: '#2563eb'
+        }
+    }];
+    
+    var scoreLayout = {
+        xaxis: {title: 'Оценка безопасности'},
+        yaxis: {title: 'Количество компьютеров'}
+    };
+    
+    Plotly.newPlot('score-chart', scoreData, scoreLayout);
+</script>
+{% endblock %}"""
+    
+    # Страница компьютеров
+    computers_html = """{% extends "base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Управление компьютерами</h1>
+        <p class="text-gray">Добавление, редактирование и управление устройствами для проверки</p>
+    </div>
+    <a href="/computers/new" class="btn btn-primary">
+        <i class="fas fa-plus"></i>Добавить компьютер
+    </a>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-6">
+    <div class="grid grid-4 gap-4">
+        <div>
+            <label class="form-label">Поиск</label>
+            <input type="text" id="search" placeholder="Название, IP, теги..." class="form-control"
+                   onkeyup="filterTable('computers-table', 'search')">
+        </div>
+        <div>
+            <label class="form-label">Операционная система</label>
+            <select id="os-filter" class="form-control" multiple>
+                <option value="Windows">Windows</option>
+                <option value="Linux">Linux</option>
+                <option value="macOS">macOS</option>
+                <option value="Other">Другая</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Статус</label>
+            <select id="status-filter" class="form-control" multiple>
+                <option value="verified">Проверен</option>
+                <option value="not_verified">Не проверен</option>
+                <option value="in_progress">В процессе</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Критичность</label>
+            <select id="criticality-filter" class="form-control" multiple>
+                <option value="critical">Критическая</option>
+                <option value="high">Высокая</option>
+                <option value="medium">Средняя</option>
+                <option value="low">Низкая</option>
+            </select>
+        </div>
+    </div>
+    <div class="mt-4 flex gap-2">
+        <button onclick="applyFilters()" class="btn btn-primary">Применить фильтры</button>
+        <button onclick="clearFilters()" class="btn btn-outline">Сбросить</button>
+    </div>
+</div>
+
+<!-- Список компьютеров -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Список компьютеров ({{ computers|length }})</h2>
+        <div class="flex gap-2">
+            <button onclick="exportComputers()" class="btn btn-outline">
+                <i class="fas fa-download"></i>Экспорт
+            </button>
+            <button onclick="openModal('import-modal')" class="btn btn-outline">
+                <i class="fas fa-upload"></i>Импорт
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table class="table" id="computers-table">
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>IP адрес</th>
+                    <th>ОС</th>
+                    <th>Статус проверки</th>
+                    <th>Оценка</th>
+                    <th>Критичность</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for computer in computers %}
+                <tr data-computer-id="{{ computer.id }}">
+                    <td>
+                        <div class="font-semibold">{{ computer.name }}</div>
+                        <div class="text-sm text-gray">{{ computer.description[:50] }}{% if computer.description|length > 50 %}...{% endif %}</div>
+                        <div class="text-xs">
+                            {% for tag in computer.tags[:3] %}
+                            <span class="badge badge-success">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if computer.ip %}
+                        <code>{{ computer.ip }}</code>
+                        {% else %}
+                        <span class="text-gray">Не указан</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            {% if 'Windows' in computer.os %}
+                            <i class="fab fa-windows text-blue-500"></i>
+                            {% elif 'Linux' in computer.os or 'Ubuntu' in computer.os %}
+                            <i class="fab fa-linux text-orange-500"></i>
+                            {% elif 'mac' in computer.os.lower() %}
+                            <i class="fab fa-apple text-gray-700"></i>
+                            {% else %}
+                            <i class="fas fa-server"></i>
+                            {% endif %}
+                            {{ computer.os }}
+                        </div>
+                    </td>
+                    <td>
+                        {% if computer.status == 'verified' %}
+                        <span class="badge badge-success">
+                            <i class="fas fa-check"></i>Проверен
+                        </span>
+                        <div class="text-xs text-gray">{{ computer.last_verification or '' }}</div>
+                        {% elif computer.status == 'in_progress' %}
+                        <span class="badge badge-warning">
+                            <i class="fas fa-sync fa-spin"></i>В процессе
+                        </span>
+                        {% else %}
+                        <span class="badge badge-danger">
+                            <i class="fas fa-times"></i>Не проверен
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if computer.security_score %}
+                        <div class="flex items-center gap-2">
+                            <div class="w-16">
+                                <div class="progress-bar">
+                                    <div class="progress-fill 
+                                        {% if computer.security_score >= 70 %}progress-success
+                                        {% elif computer.security_score >= 40 %}progress-warning
+                                        {% else %}progress-danger{% endif %}" 
+                                         style="width: {{ computer.security_score }}%"></div>
+                                </div>
+                            </div>
+                            <span>{{ computer.security_score }}</span>
+                        </div>
+                        {% else %}
+                        <span class="text-gray">Нет данных</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if computer.criticality == 'critical' %}
+                        <span class="badge badge-danger">Критическая</span>
+                        {% elif computer.criticality == 'high' %}
+                        <span class="badge badge-warning">Высокая</span>
+                        {% elif computer.criticality == 'medium' %}
+                        <span class="badge badge-info">Средняя</span>
+                        {% else %}
+                        <span class="badge badge-success">Низкая</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex gap-2">
+                            <a href="/verification?computer={{ computer.id }}" class="btn btn-primary btn-sm" title="Проверить">
+                                <i class="fas fa-search"></i>
+                            </a>
+                            <a href="/computers/edit/{{ computer.id }}" class="btn btn-outline btn-sm" title="Редактировать">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="/reports?computer={{ computer.id }}" class="btn btn-outline btn-sm" title="Отчеты">
+                                <i class="fas fa-chart-bar"></i>
+                            </a>
+                            <button onclick="deleteComputer('{{ computer.id }}')" class="btn btn-danger btn-sm" title="Удалить">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not computers %}
+    <div class="p-8 text-center text-gray">
+        <i class="fas fa-desktop text-4xl mb-4"></i>
+        <h3 class="text-lg font-semibold mb-2">Нет компьютеров</h3>
+        <p class="mb-4">Добавьте компьютеры для начала работы с системой</p>
+        <a href="/computers/new" class="btn btn-primary">Добавить первый компьютер</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Модальное окно импорта -->
+<div class="modal" id="import-modal">
+    <div class="modal-content">
+        <div class="card-header">
+            <h2 class="card-title">Импорт компьютеров</h2>
+            <button onclick="closeModal('import-modal')" class="btn btn-outline btn-sm">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-4">
+            <form id="import-form" onsubmit="importComputers(event)">
+                <div class="form-group">
+                    <label class="form-label">Выберите файл (JSON или CSV)</label>
+                    <input type="file" id="import-file" class="form-control" accept=".json,.csv" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Тип импорта</label>
+                    <select id="import-type" class="form-control">
+                        <option value="merge">Объединить с существующими</option>
+                        <option value="replace">Заменить все данные</option>
+                    </select>
+                </div>
+                <div class="mt-6 flex gap-2">
+                    <button type="submit" class="btn btn-primary">Импортировать</button>
+                    <button type="button" onclick="closeModal('import-modal')" class="btn btn-outline">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const osFilter = Array.from(document.getElementById('os-filter').selectedOptions).map(o => o.value);
+    const statusFilter = Array.from(document.getElementById('status-filter').selectedOptions).map(o => o.value);
+    const criticalityFilter = Array.from(document.getElementById('criticality-filter').selectedOptions).map(o => o.value);
+    
+    const rows = document.querySelectorAll('#computers-table tbody tr');
+    
+    rows.forEach(row => {
+        let show = true;
+        const name = row.cells[0].textContent.toLowerCase();
+        const os = row.cells[2].textContent;
+        const status = row.cells[3].textContent;
+        const criticality = row.cells[5].textContent;
+        
+        if (search && !name.includes(search)) show = false;
+        if (osFilter.length && !osFilter.some(osType => os.includes(osType))) show = false;
+        if (statusFilter.length) {
+            const hasVerified = status.includes('Проверен') && statusFilter.includes('verified');
+            const hasNotVerified = status.includes('Не проверен') && statusFilter.includes('not_verified');
+            const hasInProgress = status.includes('В процессе') && statusFilter.includes('in_progress');
+            if (!(hasVerified || hasNotVerified || hasInProgress)) show = false;
+        }
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+function clearFilters() {
+    document.getElementById('search').value = '';
+    document.getElementById('os-filter').selectedIndex = -1;
+    document.getElementById('status-filter').selectedIndex = -1;
+    document.getElementById('criticality-filter').selectedIndex = -1;
+    
+    const rows = document.querySelectorAll('#computers-table tbody tr');
+    rows.forEach(row => row.style.display = '');
+}
+
+async function deleteComputer(id) {
+    if (confirm('Вы уверены, что хотите удалить этот компьютер?')) {
+        try {
+            const response = await fetch(`/api/computer/${id}`, { 
+                method: 'DELETE' 
+            });
+            
+            if (response.ok) {
+                showToast('Компьютер успешно удален', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                throw new Error('Ошибка при удалении');
+            }
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+}
+
+function exportComputers() {
+    exportToCSV('computers-table', `computers_${new Date().toISOString().slice(0,10)}.csv`);
+}
+
+function importComputers(event) {
+    event.preventDefault();
+    const fileInput = document.getElementById('import-file');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showToast('Пожалуйста, выберите файл', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const content = e.target.result;
+            let data;
+            
+            if (file.name.endsWith('.json')) {
+                data = JSON.parse(content);
+            } else if (file.name.endsWith('.csv')) {
+                data = parseCSV(content);
+            }
+            
+            // Отправляем данные на сервер
+            const response = await fetch('/api/computers/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    data: data,
+                    type: document.getElementById('import-type').value
+                })
+            });
+            
+            if (response.ok) {
+                showToast('Данные успешно импортированы', 'success');
+                closeModal('import-modal');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                throw new Error('Ошибка при импорте');
+            }
+        } catch (error) {
+            showToast('Ошибка при чтении файла: ' + error.message, 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+}
+
+function parseCSV(csv) {
+    const lines = csv.split('\\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const result = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim() === '') continue;
+        
+        const obj = {};
+        const currentline = lines[i].split(',');
+        
+        for (let j = 0; j < headers.length; j++) {
+            obj[headers[j]] = currentline[j] ? currentline[j].trim() : '';
+        }
+        
+        result.push(obj);
+    }
+    
+    return result;
+}
+
+// Функция для фильтрации таблицы
+function filterTable(tableId, searchId) {
+    const search = document.getElementById(searchId).value.toLowerCase();
+    const table = document.getElementById(tableId);
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    }
+}
+</script>
+{% endblock %}"""
+    
+    # Форма добавления компьютера
+    computer_form_html = """{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold">
+            {% if computer %}Редактирование компьютера{% else %}Добавление нового компьютера{% endif %}
+        </h1>
+        <p class="text-gray">Заполните информацию о компьютере для проверки</p>
+    </div>
+    
+    <div class="card">
+        <form id="computer-form" method="POST" 
+              action="{% if computer %}/api/computer/{{ computer.id }}{% else %}/api/computer{% endif %}">
+            <div class="grid grid-2 gap-6 mb-6">
+                <div class="form-group">
+                    <label class="form-label">Название компьютера *</label>
+                    <input type="text" name="name" class="form-control" 
+                           value="{{ computer.name if computer else '' }}" 
+                           placeholder="Например: Веб-сервер компании" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">IP адрес</label>
+                    <input type="text" name="ip" class="form-control" 
+                           value="{{ computer.ip if computer else '' }}" 
+                           placeholder="192.168.1.100">
+                </div>
+            </div>
+            
+            <div class="grid grid-2 gap-6 mb-6">
+                <div class="form-group">
+                    <label class="form-label">Операционная система *</label>
+                    <select name="os" class="form-control" required>
+                        <option value="">Выберите ОС</option>
+                        <option value="Windows 10" {% if computer and computer.os == 'Windows 10' %}selected{% endif %}>Windows 10</option>
+                        <option value="Windows 11" {% if computer and computer.os == 'Windows 11' %}selected{% endif %}>Windows 11</option>
+                        <option value="Windows Server 2022" {% if computer and computer.os == 'Windows Server 2022' %}selected{% endif %}>Windows Server 2022</option>
+                        <option value="Ubuntu 22.04" {% if computer and computer.os == 'Ubuntu 22.04' %}selected{% endif %}>Ubuntu 22.04</option>
+                        <option value="CentOS 7" {% if computer and computer.os == 'CentOS 7' %}selected{% endif %}>CentOS 7</option>
+                        <option value="macOS 14" {% if computer and computer.os == 'macOS 14' %}selected{% endif %}>macOS 14</option>
+                        <option value="Другая" {% if computer and computer.os == 'Другая' %}selected{% endif %}>Другая</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Критичность</label>
+                    <select name="criticality" class="form-control">
+                        <option value="low" {% if computer and computer.criticality == 'low' %}selected{% endif %}>Низкая</option>
+                        <option value="medium" {% if computer and computer.criticality == 'medium' %}selected{% endif %}>Средняя</option>
+                        <option value="high" {% if computer and computer.criticality == 'high' %}selected{% endif %}>Высокая</option>
+                        <option value="critical" {% if computer and computer.criticality == 'critical' %}selected{% endif %}>Критическая</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="form-group">
+                    <label class="form-label">Расположение</label>
+                    <input type="text" name="location" class="form-control" 
+                           value="{{ computer.location if computer else '' }}" 
+                           placeholder="Например: Серверная 1, Кабинет 101">
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="form-group">
+                    <label class="form-label">Описание</label>
+                    <textarea name="description" class="form-control" rows="3" 
+                              placeholder="Описание компьютера, его назначение и особенности">{{ computer.description if computer else '' }}</textarea>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="form-group">
+                    <label class="form-label">Теги</label>
+                    <input type="text" name="tags" class="form-control" 
+                           value="{{ computer.tags|join(', ') if computer else '' }}" 
+                           placeholder="server, web, critical (через запятую)">
+                    <div class="text-sm text-gray mt-1">Используйте теги для группировки и фильтрации</div>
+                </div>
+            </div>
+            
+            <div class="flex gap-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    {% if computer %}Сохранить изменения{% else %}Добавить компьютер{% endif %}
+                </button>
+                <a href="/computers" class="btn btn-outline">
+                    <i class="fas fa-times"></i>Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    {% if computer %}
+    <div class="mt-6 card">
+        <div class="card-header">
+            <h2 class="card-title">История проверок</h2>
+        </div>
+        <div class="p-4">
+            <p class="text-gray text-center">Нет данных о проверках</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('computer-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Преобразуем теги в массив
+    if (data.tags) {
+        data.tags = data.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+    }
+    
+    try {
+        const response = await fetch(form.action, {
+            method: form.method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showToast(
+                {% if computer %}'Изменения сохранены'{% else %}'Компьютер успешно добавлен'{% endif %}, 
+                'success'
+            );
+            setTimeout(() => {
+                window.location.href = '/computers';
+            }, 1000);
+        } else {
+            const result = await response.json();
+            throw new Error(result.detail || 'Произошла ошибка');
+        }
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+});
+</script>
+{% endblock %}"""
+    
+    # Страница проверки
+    verification_html = """{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Проверка безопасности</h1>
+    <p class="text-gray">Запустите проверку безопасности на выбранных компьютерах</p>
+</div>
+
+<div class="grid grid-2 gap-6">
+    <!-- Выбор компьютеров -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Выбор компьютеров</h2>
+        </div>
+        <div class="p-4">
+            <div class="form-group mb-4">
+                <label class="form-label">Фильтр компьютеров</label>
+                <input type="text" id="computer-search" class="form-control" 
+                       placeholder="Поиск по названию, IP или тегам">
+            </div>
+            
+            <div class="mb-4" style="max-height: 300px; overflow-y: auto;">
+                <div id="computers-list">
+                    {% for computer in computers %}
+                    <div class="flex items-center gap-3 p-3 border-b border-gray-light hover:bg-gray-50">
+                        <input type="checkbox" id="computer-{{ computer.id }}" 
+                               value="{{ computer.id }}" class="computer-checkbox">
+                        <label for="computer-{{ computer.id }}" class="flex-1 cursor-pointer">
+                            <div class="font-semibold">{{ computer.name }}</div>
+                            <div class="text-sm text-gray">
+                                {{ computer.ip }} • {{ computer.os }}
+                                {% if computer.last_verification %}
+                                • Последняя проверка: {{ computer.last_verification }}
+                                {% endif %}
+                            </div>
+                        </label>
+                        <div class="text-right">
+                            <span class="badge 
+                                {% if computer.criticality == 'critical' %}badge-danger
+                                {% elif computer.criticality == 'high' %}badge-warning
+                                {% elif computer.criticality == 'medium' %}badge-info
+                                {% else %}badge-success{% endif %}">
+                                {{ computer.criticality }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="flex gap-2 mb-4">
+                <button onclick="selectAll()" class="btn btn-outline btn-sm">Выбрать все</button>
+                <button onclick="deselectAll()" class="btn btn-outline btn-sm">Снять все</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Настройки проверки -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Настройки проверки</h2>
+        </div>
+        <div class="p-4">
+            <div class="form-group mb-4">
+                <label class="form-label">Тип проверки</label>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="check_type" value="requirements" checked>
+                        <span>Проверка требований безопасности</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="check_type" value="vulnerabilities" checked>
+                        <span>Сканирование уязвимостей</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="check_type" value="configuration">
+                        <span>Анализ конфигурации</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="check_type" value="compliance">
+                        <span>Соответствие стандартам</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group mb-4">
+                <label class="form-label">Глубина проверки</label>
+                <select id="depth" class="form-control">
+                    <option value="quick">Быстрая (основные проверки)</option>
+                    <option value="standard" selected>Стандартная (полная проверка)</option>
+                    <option value="deep">Глубокая (детальный анализ)</option>
+                </select>
+            </div>
+            
+            <div class="form-group mb-6">
+                <label class="form-label">Стандарты безопасности</label>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="standard" value="fstek" checked>
+                        <span>ФСТЭК России</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="standard" value="gost">
+                        <span>ГОСТ Р 57580</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="standard" value="cis" checked>
+                        <span>CIS Benchmarks</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="standard" value="stig">
+                        <span>STIG</span>
+                    </label>
+                </div>
+            </div>
+            
+            <button onclick="startVerification()" class="btn btn-primary w-full">
+                <i class="fas fa-play"></i>Запустить проверку
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Прогресс проверки -->
+<div class="mt-6 card hidden" id="progress-card">
+    <div class="card-header">
+        <h2 class="card-title">Ход проверки</h2>
+        <div class="text-sm text-gray" id="progress-status">Подготовка...</div>
+    </div>
+    <div class="p-4">
+        <div class="mb-4">
+            <div class="flex justify-between text-sm mb-1">
+                <span id="progress-text">0%</span>
+                <span id="progress-detail">Инициализация...</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-info" id="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <div id="progress-log" class="space-y-2 max-h-64 overflow-y-auto"></div>
+    </div>
+</div>
+
+<!-- Результаты проверки -->
+<div class="mt-6 card hidden" id="results-card">
+    <div class="card-header">
+        <h2 class="card-title">Результаты проверки</h2>
+        <button onclick="exportResults()" class="btn btn-outline">
+            <i class="fas fa-download"></i>Экспорт результатов
+        </button>
+    </div>
+    <div class="p-4">
+        <div id="results-content">
+            <!-- Результаты будут загружены сюда -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let verificationId = null;
+let progressInterval = null;
+
+function filterComputers() {
+    const search = document.getElementById('computer-search').value.toLowerCase();
+    const items = document.querySelectorAll('#computers-list > div');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(search) ? '' : 'none';
+    });
+}
+
+function selectAll() {
+    document.querySelectorAll('.computer-checkbox').forEach(cb => cb.checked = true);
+}
+
+function deselectAll() {
+    document.querySelectorAll('.computer-checkbox').forEach(cb => cb.checked = false);
+}
+
+function getSelectedComputers() {
+    const checkboxes = document.querySelectorAll('.computer-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function getCheckTypes() {
+    const checkboxes = document.querySelectorAll('input[name="check_type"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function getStandards() {
+    const checkboxes = document.querySelectorAll('input[name="standard"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+async function startVerification() {
+    const computerIds = getSelectedComputers();
+    if (computerIds.length === 0) {
+        showToast('Выберите хотя бы один компьютер для проверки', 'error');
+        return;
+    }
+    
+    const checkTypes = getCheckTypes();
+    const standards = getStandards();
+    const depth = document.getElementById('depth').value;
+    
+    // Показываем прогресс
+    document.getElementById('progress-card').classList.remove('hidden');
+    document.getElementById('results-card').classList.add('hidden');
+    
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const progressDetail = document.getElementById('progress-detail');
+    const progressLog = document.getElementById('progress-log');
+    
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    progressDetail.textContent = 'Начало проверки...';
+    progressLog.innerHTML = '';
+    
+    try {
+        // Запускаем проверку
+        const response = await fetch('/api/verification/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                computer_ids: computerIds,
+                check_types: checkTypes,
+                standards: standards,
+                depth: depth
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка при запуске проверки');
+        }
+        
+        const result = await response.json();
+        verificationId = result.verification_id;
+        
+        // Начинаем отслеживать прогресс
+        startProgressTracking(verificationId);
+        
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function startProgressTracking(verificationId) {
+    if (progressInterval) {
+        clearInterval(progressInterval);
+    }
+    
+    progressInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/verification/progress/${verificationId}`);
+            if (!response.ok) return;
+            
+            const progress = await response.json();
+            
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const progressDetail = document.getElementById('progress-detail');
+            const progressLog = document.getElementById('progress-log');
+            const progressStatus = document.getElementById('progress-status');
+            
+            progressBar.style.width = `${progress.percentage}%`;
+            progressText.textContent = `${progress.percentage}%`;
+            progressDetail.textContent = progress.current_task || 'Выполнение проверки...';
+            progressStatus.textContent = progress.status || 'В процессе';
+            
+            // Добавляем логи
+            if (progress.logs && progress.logs.length > 0) {
+                progressLog.innerHTML = '';
+                progress.logs.forEach(log => {
+                    const logElement = document.createElement('div');
+                    logElement.className = 'text-sm p-2 bg-gray-50 rounded';
+                    logElement.innerHTML = `
+                        <div class="flex justify-between">
+                            <span>${log.message}</span>
+                            <span class="text-gray">${log.time}</span>
+                        </div>
+                    `;
+                    progressLog.appendChild(logElement);
+                });
+                progressLog.scrollTop = progressLog.scrollHeight;
+            }
+            
+            // Если проверка завершена
+            if (progress.status === 'completed' || progress.status === 'failed') {
+                clearInterval(progressInterval);
+                
+                if (progress.status === 'completed') {
+                    // Показываем результаты
+                    setTimeout(() => {
+                        loadResults(verificationId);
+                    }, 1000);
+                } else {
+                    showToast('Проверка завершилась с ошибкой', 'error');
+                }
+            }
+            
+        } catch (error) {
+            console.error('Ошибка при получении прогресса:', error);
+        }
+    }, 1000);
+}
+
+async function loadResults(verificationId) {
+    try {
+        const response = await fetch(`/api/verification/results/${verificationId}`);
+        if (!response.ok) return;
+        
+        const results = await response.json();
+        
+        // Показываем карточку с результатами
+        document.getElementById('progress-card').classList.add('hidden');
+        document.getElementById('results-card').classList.remove('hidden');
+        
+        // Формируем HTML с результатами
+        const resultsContent = document.getElementById('results-content');
+        resultsContent.innerHTML = `
+            <div class="grid grid-4 gap-4 mb-6">
+                <div class="card">
+                    <div class="text-center">
+                        <div class="text-sm text-gray mb-1">Всего проверок</div>
+                        <div class="text-2xl font-bold">${results.total_checks || 0}</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="text-center">
+                        <div class="text-sm text-gray mb-1">Успешно</div>
+                        <div class="text-2xl font-bold text-success">${results.passed || 0}</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="text-center">
+                        <div class="text-sm text-gray mb-1">С ошибками</div>
+                        <div class="text-2xl font-bold text-warning">${results.failed || 0}</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="text-center">
+                        <div class="text-sm text-gray mb-1">Средняя оценка</div>
+                        <div class="text-2xl font-bold">${results.avg_score || 0}/100</div>
+                    </div>
+                </div>
+            </div>
+            
+            ${results.details ? `
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title">Детали проверки</h3>
+                </div>
+                <div class="p-4">
+                    <pre class="bg-gray-50 p-4 rounded overflow-auto text-sm">${JSON.stringify(results.details, null, 2)}</pre>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${results.recommendations && results.recommendations.length > 0 ? `
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Рекомендации</h3>
+                </div>
+                <div class="p-4">
+                    <ul class="space-y-2">
+                        ${results.recommendations.map(rec => `
+                            <li class="flex items-start gap-2">
+                                <i class="fas fa-info-circle text-primary mt-1"></i>
+                                <span>${rec}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            </div>
+            ` : ''}
+        `;
+        
+        showToast('Проверка успешно завершена', 'success');
+        
+    } catch (error) {
+        console.error('Ошибка при загрузке результатов:', error);
+    }
+}
+
+function exportResults() {
+    if (!verificationId) {
+        showToast('Нет результатов для экспорта', 'error');
+        return;
+    }
+    
+    window.open(`/api/verification/export/${verificationId}`, '_blank');
+}
+
+// Инициализация поиска
+document.getElementById('computer-search').addEventListener('input', filterComputers);
+</script>
+{% endblock %}"""
+    
+    # Сохраняем шаблоны
+    templates_dir = Config.TEMPLATES_DIR
+    
+    (templates_dir / "base.html").write_text(base_html, encoding='utf-8')
+    (templates_dir / "dashboard.html").write_text(dashboard_html, encoding='utf-8')
+    (templates_dir / "computers.html").write_text(computers_html, encoding='utf-8')
+    (templates_dir / "computer_form.html").write_text(computer_form_html, encoding='utf-8')
+    (templates_dir / "verification.html").write_text(verification_html, encoding='utf-8')
+    
+    # Создаем простые шаблоны для остальных страниц
+    (templates_dir / "reports.html").write_text("""
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Отчеты</h1>
+    <p class="text-gray">Просмотр и управление отчетами о проверках</p>
+</div>
+<div class="card">
+    <div class="p-8 text-center text-gray">
+        <i class="fas fa-chart-bar text-4xl mb-4"></i>
+        <h3 class="text-lg font-semibold mb-2">Раздел в разработке</h3>
+        <p>Страница отчетов будет доступна в следующем обновлении</p>
+    </div>
+</div>
+{% endblock %}
+""", encoding='utf-8')
+    
+    (templates_dir / "settings.html").write_text("""
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold">Настройки</h1>
+    <p class="text-gray">Настройка системы безопасности и параметров проверки</p>
+</div>
+<div class="card">
+    <div class="p-8 text-center text-gray">
+        <i class="fas fa-cog text-4xl mb-4"></i>
+        <h3 class="text-lg font-semibold mb-2">Раздел в разработке</h3>
+        <p>Настройки будут доступны в следующем обновлении</p>
+    </div>
+</div>
+{% endblock %}
+""", encoding='utf-8')
+
+# ==================== БАЗА ДАННЫХ ====================
+class Database:
+    """Управление данными в JSON файлах"""
+    
+    @staticmethod
+    def load_computers():
+        """Загрузка списка компьютеров"""
+        computers_file = Config.DATA_DIR / "computers.json"
+        if computers_file.exists():
+            with open(computers_file, 'r', encoding='utf-8') as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    return []
+        return []
+    
+    @staticmethod
+    def save_computers(computers):
+        """Сохранение списка компьютеров"""
+        computers_file = Config.DATA_DIR / "computers.json"
+        with open(computers_file, 'w', encoding='utf-8') as f:
+            json.dump(computers, f, indent=2, ensure_ascii=False)
+    
+    @staticmethod
+    def add_computer(computer_data):
+        """Добавление компьютера"""
+        computers = Database.load_computers()
+        
+        # Генерируем ID если нет
+        if 'id' not in computer_data:
+            computer_data['id'] = str(uuid.uuid4())
+        
+        # Устанавливаем значения по умолчанию
+        defaults = {
+            'status': 'not_verified',
+            'security_score': 0,
+            'vulnerabilities_count': 0,
+            'last_verification': None,
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        for key, value in defaults.items():
+            if key not in computer_data:
+                computer_data[key] = value
+        
+        computers.append(computer_data)
+        Database.save_computers(computers)
+        return computer_data
+    
+    @staticmethod
+    def update_computer(computer_id, updates):
+        """Обновление компьютера"""
+        computers = Database.load_computers()
+        
+        for i, computer in enumerate(computers):
+            if computer.get('id') == computer_id:
+                computers[i].update(updates)
+                computers[i]['updated_at'] = datetime.now().isoformat()
+                Database.save_computers(computers)
+                return True
+        
+        return False
+    
+    @staticmethod
+    def delete_computer(computer_id):
+        """Удаление компьютера"""
+        computers = Database.load_computers()
+        computers = [c for c in computers if c.get('id') != computer_id]
+        Database.save_computers(computers)
+        return True
+
+# ==================== FASTAPI ПРИЛОЖЕНИЕ ====================
+app = FastAPI(
+    title=Config.SYSTEM_NAME,
+    description="Современная система верификации безопасности ИСПДн",
+    version=Config.VERSION,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Инициализация
+init_directories()
+
+# Подключаем статику и шаблоны
+app.mount("/static", StaticFiles(directory=Config.STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=Config.TEMPLATES_DIR)
+
+# ==================== ВЕБ-ИНТЕРФЕЙС ====================
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """Главная страница"""
+    # Загружаем компьютеры
+    computers = Database.load_computers()
+    
+    # Рассчитываем статистику
+    verified_count = len([c for c in computers if c.get('status') == 'verified'])
+    scores = [c.get('security_score', 0) for c in computers if c.get('security_score', 0) > 0]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
+    # Распределение по ОС
+    os_distribution = {}
+    for computer in computers:
+        os_name = computer.get('os', 'Неизвестно')
+        os_distribution[os_name] = os_distribution.get(os_name, 0) + 1
+    
+    # Распределение по оценкам
+    score_distribution = {
+        "0-20": 0,
+        "21-40": 0,
+        "41-60": 0,
+        "61-80": 0,
+        "81-100": 0
+    }
+    
+    for computer in computers:
+        score = computer.get('security_score', 0)
+        if score <= 20:
+            score_distribution["0-20"] += 1
+        elif score <= 40:
+            score_distribution["21-40"] += 1
+        elif score <= 60:
+            score_distribution["41-60"] += 1
+        elif score <= 80:
+            score_distribution["61-80"] += 1
+        else:
+            score_distribution["81-100"] += 1
+    
+    # Последние отчеты (заглушка)
+    recent_reports = []
+    
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "title": "Главная",
+        "active_page": "dashboard",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M'),
+        "stats": {
+            "total_computers": len(computers),
+            "verified": verified_count,
+            "avg_score": round(avg_score, 1),
+            "total_vulnerabilities": sum(c.get('vulnerabilities_count', 0) for c in computers)
+        },
+        "recent_reports": recent_reports,
+        "os_labels": list(os_distribution.keys()),
+        "os_values": list(os_distribution.values()),
+        "score_labels": list(score_distribution.keys()),
+        "score_values": list(score_distribution.values())
+    })
+
+@app.get("/computers", response_class=HTMLResponse)
+async def computers_list(request: Request):
+    """Страница списка компьютеров"""
+    computers = Database.load_computers()
+    
+    return templates.TemplateResponse("computers.html", {
+        "request": request,
+        "title": "Компьютеры",
+        "active_page": "computers",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M'),
+        "computers": computers
+    })
+
+@app.get("/computers/new", response_class=HTMLResponse)
+async def new_computer_form(request: Request):
+    """Форма добавления компьютера"""
+    return templates.TemplateResponse("computer_form.html", {
+        "request": request,
+        "title": "Добавить компьютер",
+        "active_page": "computers",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M'),
+        "computer": None
+    })
+
+@app.get("/computers/edit/{computer_id}", response_class=HTMLResponse)
+async def edit_computer_form(request: Request, computer_id: str):
+    """Форма редактирования компьютера"""
+    computers = Database.load_computers()
+    computer = next((c for c in computers if c.get('id') == computer_id), None)
+    
+    if not computer:
+        raise HTTPException(status_code=404, detail="Computer not found")
+    
+    return templates.TemplateResponse("computer_form.html", {
+        "request": request,
+        "title": "Редактировать компьютер",
+        "active_page": "computers",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M'),
+        "computer": computer
+    })
+
+@app.get("/verification", response_class=HTMLResponse)
+async def verification_page(request: Request):
+    """Страница проверки безопасности"""
+    computers = Database.load_computers()
+    
+    return templates.TemplateResponse("verification.html", {
+        "request": request,
+        "title": "Проверка безопасности",
+        "active_page": "verification",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M'),
+        "computers": computers
+    })
+
+@app.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request):
+    """Страница отчетов"""
+    return templates.TemplateResponse("reports.html", {
+        "request": request,
+        "title": "Отчеты",
+        "active_page": "reports",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M')
+    })
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """Страница настроек"""
+    return templates.TemplateResponse("settings.html", {
+        "request": request,
+        "title": "Настройки",
+        "active_page": "settings",
+        "username": "Администратор",
+        "version": Config.VERSION,
+        "current_time": datetime.now().strftime('%d.%m.%Y %H:%M')
+    })
+
+# ==================== API ====================
+@app.post("/api/computer")
+async def api_add_computer(computer: ComputerCreate):
+    """API: Добавить компьютер"""
+    computer_data = computer.dict()
+    result = Database.add_computer(computer_data)
+    return {"status": "success", "computer": result}
+
+@app.put("/api/computer/{computer_id}")
+async def api_update_computer(computer_id: str, computer: ComputerCreate):
+    """API: Обновить компьютер"""
+    updates = computer.dict()
+    success = Database.update_computer(computer_id, updates)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Computer not found")
+    
+    return {"status": "success", "message": "Computer updated"}
+
+@app.delete("/api/computer/{computer_id}")
+async def api_delete_computer(computer_id: str):
+    """API: Удалить компьютер"""
+    success = Database.delete_computer(computer_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Computer not found")
+    
+    return {"status": "success", "message": "Computer deleted"}
+
+@app.get("/api/computers")
+async def api_get_computers():
+    """API: Получить список компьютеров"""
+    computers = Database.load_computers()
+    return {"computers": computers}
+
+@app.get("/api/computer/{computer_id}")
+async def api_get_computer(computer_id: str):
+    """API: Получить компьютер по ID"""
+    computers = Database.load_computers()
+    computer = next((c for c in computers if c.get('id') == computer_id), None)
+    
+    if not computer:
+        raise HTTPException(status_code=404, detail="Computer not found")
+    
+    return {"computer": computer}
+
+@app.post("/api/computers/import")
+async def api_import_computers(data: dict):
+    """API: Импорт компьютеров"""
+    try:
+        import_data = data.get("data", [])
+        import_type = data.get("type", "merge")
+        
+        current_computers = Database.load_computers()
+        
+        if import_type == "replace":
+            # Заменяем все данные
+            new_computers = []
+            for item in import_data:
+                item['id'] = str(uuid.uuid4())
+                item['created_at'] = datetime.now().isoformat()
+                item['updated_at'] = datetime.now().isoformat()
+                new_computers.append(item)
+            
+            Database.save_computers(new_computers)
+        else:
+            # Объединяем с существующими
+            for item in import_data:
+                # Проверяем дубликаты по имени
+                if not any(c.get('name') == item.get('name') for c in current_computers):
+                    item['id'] = str(uuid.uuid4())
+                    item['created_at'] = datetime.now().isoformat()
+                    item['updated_at'] = datetime.now().isoformat()
+                    current_computers.append(item)
+            
+            Database.save_computers(current_computers)
+        
+        return {"status": "success", "message": f"Импортировано {len(import_data)} компьютеров"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/verification/start")
+async def api_start_verification(data: dict):
+    """API: Запустить проверку"""
+    # Заглушка для демонстрации
+    verification_id = str(uuid.uuid4())
+    
+    return {
+        "status": "verification_started",
+        "verification_id": verification_id,
+        "message": "Проверка запущена",
+        "computers_count": len(data.get("computer_ids", []))
+    }
+
+@app.get("/api/verification/progress/{verification_id}")
+async def api_get_progress(verification_id: str):
+    """API: Получить прогресс проверки"""
+    # Заглушка для демонстрации
+    import random
+    
+    progress = {
+        "verification_id": verification_id,
+        "percentage": random.randint(10, 90),
+        "status": "running",
+        "current_task": random.choice([
+            "Сбор информации о системе",
+            "Проверка требований безопасности",
+            "Сканирование уязвимостей",
+            "Анализ конфигурации",
+            "Генерация отчета"
+        ]),
+        "logs": [
+            {
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "message": random.choice([
+                    "Начата проверка требований ФСТЭК",
+                    "Обнаружено 3 уязвимости средней критичности",
+                    "Проверка парольной политики завершена",
+                    "Сканирование сетевых портов выполнено"
+                ])
+            }
+            for _ in range(random.randint(1, 5))
+        ]
+    }
+    
+    return progress
+
+@app.get("/api/verification/results/{verification_id}")
+async def api_get_results(verification_id: str):
+    """API: Получить результаты проверки"""
+    # Заглушка для демонстрации
+    results = {
+        "verification_id": verification_id,
+        "total_checks": 42,
+        "passed": 35,
+        "failed": 7,
+        "avg_score": 78,
+        "details": {
+            "requirements": {
+                "fstek": {
+                    "passed": 8,
+                    "failed": 2,
+                    "warnings": 1
+                },
+                "cis": {
+                    "passed": 15,
+                    "failed": 3,
+                    "warnings": 2
+                }
+            },
+            "vulnerabilities": {
+                "critical": 0,
+                "high": 2,
+                "medium": 5,
+                "low": 10
+            }
+        },
+        "recommendations": [
+            "Увеличить минимальную длину пароля до 12 символов",
+            "Включить двухфакторную аутентификацию",
+            "Обновить антивирусные базы",
+            "Закрыть неиспользуемые сетевые порты"
+        ]
+    }
+    
+    return results
+
+@app.get("/api/verification/export/{verification_id}")
+async def api_export_results(verification_id: str):
+    """API: Экспорт результатов"""
+    # Заглушка для демонстрации
+    results = {
+        "verification_id": verification_id,
+        "timestamp": datetime.now().isoformat(),
+        "results": "Здесь будут результаты проверки"
+    }
+    
+    # Создаем временный файл
+    export_file = Config.DATA_DIR / "exports" / f"report_{verification_id}.json"
+    export_file.parent.mkdir(exist_ok=True)
+    
+    with open(export_file, 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    
+    return FileResponse(
+        path=export_file,
+        filename=f"security_report_{verification_id}.json",
+        media_type='application/json'
+    )
+
+@app.get("/api/stats")
+async def api_get_stats():
+    """API: Получить статистику системы"""
+    computers = Database.load_computers()
+    
+    # Основная статистика
+    verified_count = len([c for c in computers if c.get('status') == 'verified'])
+    scores = [c.get('security_score', 0) for c in computers if c.get('security_score', 0) > 0]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
+    # Распределение по ОС
+    os_distribution = {}
+    for computer in computers:
+        os_name = computer.get('os', 'Неизвестно')
+        os_distribution[os_name] = os_distribution.get(os_name, 0) + 1
+    
+    # Распределение по критичности
+    criticality_distribution = {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0
+    }
+    
+    for computer in computers:
+        criticality = computer.get('criticality', 'medium')
+        criticality_distribution[criticality] = criticality_distribution.get(criticality, 0) + 1
+    
+    return {
+        "total_computers": len(computers),
+        "verified": verified_count,
+        "avg_security_score": round(avg_score, 1),
+        "total_vulnerabilities": sum(c.get('vulnerabilities_count', 0) for c in computers),
+        "os_distribution": os_distribution,
+        "criticality_distribution": criticality_distribution,
+        "last_updated": datetime.now().isoformat()
+    }
+
+# ==================== УТИЛИТЫ ====================
+def setup_sample_data():
+    """Создание тестовых данных"""
+    computers_file = Config.DATA_DIR / "computers.json"
+    
+    if computers_file.exists():
+        # Проверяем, есть ли уже данные
+        with open(computers_file, 'r', encoding='utf-8') as f:
+            try:
+                existing = json.load(f)
+                if len(existing) > 0:
+                    return  # Данные уже есть
+            except:
+                pass
+    
+    sample_computers = [
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Веб-сервер компании",
+            "ip": "192.168.1.10",
+            "os": "Windows Server 2022",
+            "location": "Серверная 1",
+            "description": "Основной веб-сервер с корпоративным сайтом",
+            "tags": ["server", "web", "critical"],
+            "criticality": "high",
+            "status": "verified",
+            "security_score": 85,
+            "vulnerabilities_count": 2,
+            "last_verification": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "created_at": "2024-01-15T10:00:00",
+            "updated_at": datetime.now().isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Сервер БД",
+            "ip": "192.168.1.20",
+            "os": "Ubuntu 22.04",
+            "location": "Серверная 2",
+            "description": "PostgreSQL сервер с основными базами данных",
+            "tags": ["server", "database", "critical"],
+            "criticality": "critical",
+            "status": "verified",
+            "security_score": 92,
+            "vulnerabilities_count": 1,
+            "last_verification": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "created_at": "2024-01-15T10:00:00",
+            "updated_at": datetime.now().isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Рабочая станция бухгалтера",
+            "ip": "192.168.1.100",
+            "os": "Windows 11 Pro",
+            "location": "Кабинет 101",
+            "description": "Рабочее место главного бухгалтера",
+            "tags": ["workstation", "accounting", "sensitive"],
+            "criticality": "high",
+            "status": "verified",
+            "security_score": 78,
+            "vulnerabilities_count": 3,
+            "last_verification": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "created_at": "2024-01-15T10:00:00",
+            "updated_at": datetime.now().isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Файловый сервер",
+            "ip": "192.168.1.30",
+            "os": "Windows Server 2019",
+            "location": "Серверная 1",
+            "description": "Файловое хранилище для общих документов",
+            "tags": ["server", "storage", "files"],
+            "criticality": "medium",
+            "status": "not_verified",
+            "security_score": 0,
+            "vulnerabilities_count": 0,
+            "last_verification": None,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Ноутбук директора",
+            "ip": "192.168.1.101",
+            "os": "Windows 11 Pro",
+            "location": "Кабинет 201",
+            "description": "Мобильное рабочее место директора",
+            "tags": ["laptop", "management", "mobile"],
+            "criticality": "critical",
+            "status": "in_progress",
+            "security_score": 65,
+            "vulnerabilities_count": 5,
+            "last_verification": datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "created_at": "2024-01-15T10:00:00",
+            "updated_at": datetime.now().isoformat()
+        }
+    ]
+    
+    Database.save_computers(sample_computers)
+    print("✅ Созданы тестовые данные")
+
+# ==================== ЗАПУСК СИСТЕМЫ ====================
+if __name__ == "__main__":
+    print(f"\n{'='*70}")
+    print(f"🚀 Запуск {Config.SYSTEM_NAME} v{Config.VERSION}")
+    print(f"{'='*70}")
+    
+    # Создаем тестовые данные
+    setup_sample_data()
+    
+    print(f"📁 Данные: {Config.DATA_DIR}")
+    print(f"📊 Отчеты: {Config.REPORTS_DIR}")
+    print(f"🎨 Шаблоны: {Config.TEMPLATES_DIR}")
+    print(f"📝 Статика: {Config.STATIC_DIR}")
+    print(f"🌐 Веб-интерфейс: http://localhost:{Config.PORT}")
+    print(f"📖 API документация: http://localhost:{Config.PORT}/api/docs")
+    print(f"{'='*70}")
+    print("✅ Система запущена. Нажмите Ctrl+C для остановки.\n")
+    
+    # Запускаем сервер
+    uvicorn.run(
+        "main:app",
+        host=Config.HOST,
+        port=Config.PORT,
+        reload=True
+    )
